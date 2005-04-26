@@ -53,9 +53,9 @@ PHP_FUNCTION(svn_diff);
 PHP_FUNCTION(svn_cleanup);
 
 PHP_FUNCTION(svn_repos_create);
+PHP_FUNCTION(svn_repos_recover);
 
 /* TODO: */
-PHP_FUNCTION(svn_repos_recover);
 PHP_FUNCTION(svn_repos_hotcopy);
 
 PHP_FUNCTION(svn_status);

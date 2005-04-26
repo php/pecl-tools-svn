@@ -4,7 +4,9 @@ if(!extension_loaded('svn')) {
 }
 
 $x = svn_repos_create('/tmp/wez-svn-foo', null, array(SVN_FS_CONFIG_FS_TYPE => SVN_FS_TYPE_FSFS));
-debug_zval_dump($x);
+if ($x) {
+	svn_repos_recover('/tmp/wez-svn-foo');
+}
 exit;
 
 //svn_checkout("http://www.akbkhome.com/svn/ext_svn","/tmp/ext_svn");

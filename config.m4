@@ -40,7 +40,7 @@ the svn developer package or equivalent for you system.
   ],[
     $PHP_SVN_LDFLAGS
   ])
- 
+  
   PHP_EVAL_LIBLINE($PHP_SVN_LDFLAGS, SVN_SHARED_LIBADD)
   PHP_SUBST(SVN_SHARED_LIBADD)
 

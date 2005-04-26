@@ -58,6 +58,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_diff, NULL)
 	PHP_FE(svn_cleanup, NULL)
 	PHP_FE(svn_repos_create, NULL)
+	PHP_FE(svn_repos_recover, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in svn_functions[] */
 };
 /* }}} */
@@ -901,6 +902,39 @@ PHP_FUNCTION(svn_repos_create)
 		RETVAL_TRUE;
 	} else {
 		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto bool svn_repos_recover(string path)
+   Run recovery procedures on the repository located at path. */
+PHP_FUNCTION(svn_repos_recover)
+{
+	char *path;
+	int pathlen;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
+				&path, &pathlen)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	
+	err = svn_repos_recover2(path, 0, NULL, NULL, subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
 	}
 
 	svn_pool_destroy(subpool);
