@@ -69,7 +69,9 @@ class Subversion_CopyCommit {
     function isDir($path) 
     {
         if (!isset($this->dircache[dirname($path)])) {
-            $this->dircache[dirname($path)]= svn_ls($this->repos.dirname($path),$this->rev);
+		echo "SVN:LS ".$this->repos.dirname($path) ."\n";
+		$p = strlen(dirname($path)) > 1  ? dirname($path) : '';
+            $this->dircache[dirname($path)]= svn_ls($this->repos.$p,$this->rev);
         }
         $ar= $this->dircache[dirname($path)];
         //print_r($ar);
@@ -99,5 +101,6 @@ class Subversion_CopyCommit {
     }
     
 }
+ini_set('memory_limit','64M');
 $x = new Subversion_CopyCommit;
 $x->start($_SERVER['argv']);

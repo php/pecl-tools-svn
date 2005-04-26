@@ -151,5 +151,6 @@ class Subversion_EmailCommit {
     }
      
 }
+ini_set('memory_limit','64M');
 $x = new Subversion_EmailCommit;
 $x->start($_SERVER['argv']);
