@@ -493,12 +493,14 @@ PHP_FUNCTION(svn_ls)
 		 
 		MAKE_STD_ZVAL(row);
 		array_init(row);
-		add_assoc_long(row, "created", (long) dirent->created_rev);
-		add_assoc_string(row, "modified_by", dirent->last_author ? (char *) dirent->last_author : " ? ", 1);
-		add_assoc_long(row, "size", dirent->size);
-		add_assoc_string(row, "modified", timestr,1);
-		add_assoc_string(row, "name", (char *) utf8_entryname,1);
-		add_assoc_string(row, "type", (dirent->kind == svn_node_dir) ? "dir" : "file",1);
+		add_assoc_long(row,   "created_rev", 	(long) dirent->created_rev);
+		add_assoc_string(row, "last_author", 	dirent->last_author ? (char *) dirent->last_author : " ? ", 1);
+		add_assoc_long(row,   "size", 		dirent->size);
+		add_assoc_string(row, "time", 		timestr,1);
+		/* this doesnt have a matching struct name */
+		add_assoc_string(row, "name", 		(char *) utf8_entryname,1); 
+		/* should this be a integer or something? - not very clear though.*/
+		add_assoc_string(row, "type", 		(dirent->kind == svn_node_dir) ? "dir" : "file",1);
 		add_next_index_zval(return_value,row); 
 	}
 
