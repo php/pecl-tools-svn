@@ -4,49 +4,45 @@ dnl vim:se ts=2 sw=2 et:
 
 PHP_ARG_WITH(svn, for svn support,
 
-[  --with-svn             Include svn support])
+[  --with-svn=[/path/to/svn-config]      Include svn support])
 
 
 if test "$PHP_SVN" != "no"; then
-  # --with-svn -> check with-path
-  SEARCH_PATH="/usr/local /usr"     # you might want to change this
-  SEARCH_FOR="/include/subversion-1/svn_client.h"  # you most likely want to change this
-  if test -r $PHP_SVN/$SEARCH_FOR; then # path given as parameter
-    SVN_DIR=$PHP_SVN
-  else # search default path list
-    AC_MSG_CHECKING([for svn files in default path])
-    for i in $SEARCH_PATH ; do
-      if test -r $i/$SEARCH_FOR; then
-        SVN_DIR=$i
-        AC_MSG_RESULT(found in $i)
+  AC_MSG_CHECKING([for svn-config])
+  if ! test -x $PHP_SVN ; then
+    for i in $PHP_SVN /usr/local/bin /usr/bin ; do
+      if test -x $i/svn-config ; then
+        PHP_SVN=$i/svn-config
+        break;
       fi
     done
   fi
-  
-  if test -z "$SVN_DIR"; then
+  if test -x $PHP_SVN ; then
+    AC_MSG_RESULT($PHP_SVN)
+  else
     AC_MSG_RESULT([not found])
-    AC_MSG_ERROR([Please reinstall the svn distribution])
+    AC_MSG_ERROR([
+Did not find svn-config; please ensure that you have installed
+the svn developer package or equivalent for you system.
+])
   fi
 
-  # --with-svn -> add include path
-  PHP_ADD_INCLUDE($SVN_DIR/include/subversion-1)
-  PHP_ADD_INCLUDE($SVN_DIR/include/apr-0)
+  PHP_SVN_INCLUDES=`$PHP_SVN --includes`
+  PHP_SVN_CFLAGS=`$PHP_SVN --cppflags --cflags`
+  PHP_SVN_LDFLAGS=`$PHP_SVN --ldflags --libs`
 
-  # --with-svn -> check for lib and symbol presence
-  LIBNAME=svn_client-1
-  LIBSYMBOL=svn_client_create_context
-
-  PHP_CHECK_LIBRARY($LIBNAME,$LIBSYMBOL,
+  PHP_CHECK_LIBRARY(svn_client-1,svn_client_create_context,
   [
-    PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $SVN_DIR/lib, SVN_SHARED_LIBADD)
+    PHP_ADD_LIBRARY(svn_client-1, 1, SVN_SHARED_LIBADD)
     AC_DEFINE(HAVE_SVNLIB,1,[ ])
   ],[
     AC_MSG_ERROR([wrong svn lib version or lib not found])
   ],[
-    -L$SVN_DIR/lib -lm -ldl -lsvn_client-1 -lapr-0
+    $PHP_SVN_LDFLAGS
   ])
-  
+ 
+  PHP_EVAL_LIBLINE($PHP_SVN_LDFLAGS, SVN_SHARED_LIBADD)
   PHP_SUBST(SVN_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(svn, svn.c, $ext_shared)
+  PHP_NEW_EXTENSION(svn, svn.c, $ext_shared,,$PHP_SVN_INCLUDES $PHP_SVN_CFLAGS)
 fi
