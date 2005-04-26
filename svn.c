@@ -53,6 +53,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_auth_set_parameter,	NULL)
 	PHP_FE(svn_auth_get_parameter,	NULL)
 	PHP_FE(svn_client_version, NULL)
+	PHP_FE(svn_diff, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in svn_functions[] */
 };
 /* }}} */
@@ -314,7 +315,7 @@ PHP_FUNCTION(svn_checkout)
 		RETURN_FALSE;
 	}
 	
-	if (revno != -1) {
+	if (revno > 0) {
 		revision.kind = svn_opt_revision_number;
 		revision.value.number = revno;
 	} else {
@@ -361,7 +362,7 @@ PHP_FUNCTION(svn_cat)
 	RETVAL_FALSE;
 
 
-	if (revision_no == -1) {
+	if (revision_no <= 0) {
 		revision.kind = svn_opt_revision_head;
 	} else {
 		revision.kind = svn_opt_revision_number;
@@ -431,10 +432,10 @@ PHP_FUNCTION(svn_ls)
 	}
 	RETVAL_FALSE;
  
-	if (revision_no == -1) {
+	if (revision_no <= 0) {
 		revision.kind = svn_opt_revision_head;
 	} else {
-		revision.kind =   svn_opt_revision_number;
+		revision.kind = svn_opt_revision_number;
 		revision.value.number = revision_no ;
 	}
 
@@ -497,6 +498,7 @@ PHP_FUNCTION(svn_ls)
 		add_assoc_string(row, "last_author", 	dirent->last_author ? (char *) dirent->last_author : " ? ", 1);
 		add_assoc_long(row,   "size", 		dirent->size);
 		add_assoc_string(row, "time", 		timestr,1);
+		add_assoc_long(row,   "time_t", 	apr_time_sec(dirent->time));
 		/* this doesnt have a matching struct name */
 		add_assoc_string(row, "name", 		(char *) utf8_entryname,1); 
 		/* should this be a integer or something? - not very clear though.*/
@@ -611,7 +613,7 @@ PHP_FUNCTION(svn_log)
 	RETVAL_FALSE;
   
 	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
-	if (revision == -1) {
+	if (revision <= 0) {
 		start_revision.kind =  svn_opt_revision_head;
 		end_revision.kind   =  svn_opt_revision_number;
 		end_revision.value.number = 1 ;
@@ -646,12 +648,84 @@ PHP_FUNCTION(svn_log)
 	svn_pool_destroy(subpool);
 }
 
-#if 0
+static size_t php_apr_file_write(php_stream *stream, const char *buf, size_t count TSRMLS_DC)
+{
+	apr_file_t *thefile = (apr_file_t*)stream->abstract;
+	apr_size_t nbytes = (apr_size_t)count;
+
+	apr_file_write(thefile, buf, &nbytes);
+
+	return (size_t)nbytes;
+}
+
+static size_t php_apr_file_read(php_stream *stream, char *buf, size_t count TSRMLS_DC)
+{
+	apr_file_t *thefile = (apr_file_t*)stream->abstract;
+	apr_size_t nbytes = (apr_size_t)count;
+
+	apr_file_read(thefile, buf, &nbytes);
+
+	return (size_t)nbytes;
+}
+
+static int php_apr_file_close(php_stream *stream, int close_handle TSRMLS_DC)
+{
+	if (close_handle) {
+		apr_file_close((apr_file_t*)stream->abstract);
+	}
+	return 0;
+}
+
+static int php_apr_file_flush(php_stream *stream TSRMLS_DC)
+{
+	apr_file_flush((apr_file_t*)stream->abstract);
+	return 0;
+}
+
+static int php_apr_file_seek(php_stream *stream, off_t offset, int whence, off_t *newoffset TSRMLS_DC)
+{
+	apr_file_t *thefile = (apr_file_t*)stream->abstract;
+	apr_off_t off = (apr_off_t)offset;
+
+	/* NB: apr_seek_where_t is defined using the standard SEEK_XXX whence values */
+	apr_file_seek(thefile, whence, &off);
+
+	*newoffset = (off_t)off;
+	return 0;	
+}
+
+static php_stream_ops php_apr_stream_ops = {
+	php_apr_file_write,
+	php_apr_file_read,
+	php_apr_file_close,
+	php_apr_file_flush,
+	"svn diff stream",
+	php_apr_file_seek,
+	NULL, /* cast */
+	NULL, /* stat */
+	NULL /* set_option */
+};
+
+/* {{{ proto mixed svn_diff(string path1, int rev1, string path2, int rev2)
+   Recursively diffs two paths.  Returns an array consisting of two streams: the first is the diff output and the second contains error stream output */
 PHP_FUNCTION(svn_diff)
 {
-	char *tmp_dir;
+	const char *tmp_dir;
 	char outname[256], errname[256];
 	apr_pool_t *subpool;
+	apr_file_t *outfile = NULL, *errfile = NULL;
+	svn_error_t *err;
+	char *path1, *path2;
+	int path1len, path2len;
+	long rev1 = -1, rev2 = -1;
+	apr_array_header_t diff_options = { 0, 0, 0, 0, 0};
+	svn_opt_revision_t revision1, revision2;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl!sl!",
+			&path1, &path1len, &rev1,
+			&path2, &path2len, &rev2)) {
+		return;
+	}
 
 	init_svn_client(TSRMLS_C);
 	subpool = svn_pool_create(SVN_G(pool));
@@ -659,22 +733,68 @@ PHP_FUNCTION(svn_diff)
 		RETURN_FALSE;
 	}
 	RETVAL_FALSE;
- 
+
+	if (rev1 <= 0) {
+		revision1.kind = svn_opt_revision_head;
+	} else {
+		revision1.kind = svn_opt_revision_number;
+		revision1.value.number = rev1;
+	}
+	if (rev2 <= 0) {
+		revision2.kind = svn_opt_revision_head;
+	} else {
+		revision2.kind = svn_opt_revision_number;
+		revision2.value.number = rev2;
+	}
+		
  	apr_temp_dir_get(&tmp_dir, subpool);
 	sprintf(outname, "%s/phpsvnXXXXXX", tmp_dir);
-	apr_file_mktemp(&outfile, outname, APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE);
-
 	sprintf(errname, "%s/phpsvnXXXXXX", tmp_dir);
-	apr_file_mktemp(&errfile, errname, APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE);
 
-	err = svn_client_dir(&diff_options, path1, rev1, path2, rev2, recurse, ignore, no_diff_deleted,
-		outfile, errfile, SVN_G(ctx), subpool);
+	/* use global pool, so stream lives after this function call */
+	apr_file_mktemp(&outfile, outname, 
+			APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE,
+			SVN_G(pool));
 
-	/* 'bless' the apr files into streams and return those */
+	/* use global pool, so stream lives after this function call */
+	apr_file_mktemp(&errfile, errname, 
+			APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE,
+			SVN_G(pool));
 
+	err = svn_client_diff(&diff_options,
+			path1, &revision1,
+			path2, &revision2,
+			1,
+			0,
+			0,
+			outfile, errfile,
+			SVN_G(ctx), subpool);
+
+	if (err) {
+		apr_file_close(errfile);
+		apr_file_close(outfile);
+		php_svn_handle_error(err TSRMLS_CC);
+	} else {
+		zval *t;
+		php_stream *stm = NULL;
+
+		array_init(return_value);
+
+		/* 'bless' the apr files into streams and return those */
+		stm = php_stream_alloc(&php_apr_stream_ops, outfile, 0, "rw");
+		MAKE_STD_ZVAL(t);
+		php_stream_to_zval(stm, t);
+		add_next_index_zval(return_value, t);
+		
+		stm = php_stream_alloc(&php_apr_stream_ops, errfile, 0, "rw");
+		MAKE_STD_ZVAL(t);
+		php_stream_to_zval(stm, t);
+		add_next_index_zval(return_value, t);
+	}
+	
 	svn_pool_destroy(subpool);
 }
-#endif
+/* }}} */
 
 static void php_svn_get_version(char *buf, int buflen)
 {

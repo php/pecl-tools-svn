@@ -49,6 +49,7 @@ PHP_FUNCTION(svn_log);
 PHP_FUNCTION(svn_auth_set_parameter);
 PHP_FUNCTION(svn_auth_get_parameter);
 PHP_FUNCTION(svn_client_version);
+PHP_FUNCTION(svn_diff);
 
 ZEND_BEGIN_MODULE_GLOBALS(svn)
 	apr_pool_t *pool;
