@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2004 The PHP Group                                |
+  | Copyright (c) 1997-2005 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.0 of the PHP license,       |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,8 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author: Alan Knowles <alan@akbkhome.com>                             |
+  | Authors: Alan Knowles <alan@akbkhome.com>                            |
+  |          Wez Furlong <wez@omniti.com>                                |
   +----------------------------------------------------------------------+
 */
 
@@ -29,30 +30,34 @@
 
 #include "svn_pools.h"
 #include "svn_sorts.h"
+#include "svn_config.h"
+#include "svn_auth.h"
+#include "svn_path.h"
 
 /* If you declare any globals in php_svn.h uncomment this: */
 ZEND_DECLARE_MODULE_GLOBALS(svn)
 
+/* custom property for ignoring SSL cert verification errors */
+#define PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS "php:svn:auth:ignore-ssl-verify-errors"
+static void php_svn_get_version(char *buf, int buflen);
 
 /* True global resources - no need for thread safety here */
 static int le_svn;
 
-/* {{{ svn_functions[]
- *
- * Every user visible function must have an entry in svn_functions[].
- */
+/* {{{ svn_functions[] */
 function_entry svn_functions[] = {
-	PHP_FE(confirm_svn_compiled,	NULL)		/* For testing, remove later. */
 	PHP_FE(svn_checkout,		NULL)
 	PHP_FE(svn_cat,			NULL)
 	PHP_FE(svn_ls,			NULL)
 	PHP_FE(svn_log,			NULL)
+	PHP_FE(svn_auth_set_parameter,	NULL)
+	PHP_FE(svn_auth_get_parameter,	NULL)
+	PHP_FE(svn_client_version, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in svn_functions[] */
 };
 /* }}} */
 
-/* {{{ svn_module_entry
- */
+/* {{{ svn_module_entry */
 zend_module_entry svn_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
 	STANDARD_MODULE_HEADER,
@@ -60,9 +65,9 @@ zend_module_entry svn_module_entry = {
 	"svn",
 	svn_functions,
 	PHP_MINIT(svn),
-	PHP_MSHUTDOWN(svn),
-	PHP_RINIT(svn),		/* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(svn),	/* Replace with NULL if there's nothing to do at request end */
+	NULL,
+	NULL,
+	PHP_RSHUTDOWN(svn),
 	PHP_MINFO(svn),
 #if ZEND_MODULE_API_NO >= 20010901
 	"0.1", /* Replace with version number for your extension */
@@ -85,127 +90,199 @@ PHP_INI_END()
 */
 /* }}} */
 
-/* {{{ php_svn_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_svn_init_globals(zend_svn_globals *svn_globals)
+#include "ext/standard/php_smart_str.h"
+static void php_svn_handle_error(svn_error_t *error TSRMLS_DC)
 {
-	svn_globals->global_value = 0;
-	svn_globals->global_string = NULL;
-}
-*/
-/* }}} */
+	svn_error_t *itr = error;
+	smart_str s = {0,0,0};
 
-int 
-set_up_client_ctx ()
+	smart_str_appendl(&s, "svn error(s) occured\n", sizeof("svn error(s) occured\n")-1);
+
+	while (itr) {
+		char buf[256];
+
+		smart_str_append_long(&s, itr->apr_err);
+		smart_str_appendl(&s, " (", 2);
+
+		svn_strerror(itr->apr_err, buf, sizeof(buf));
+		smart_str_appendl(&s, buf, strlen(buf));
+		smart_str_appendl(&s, ") ", 2);
+		smart_str_appendl(&s, itr->message, strlen(itr->message));
+
+		if (itr->child) {
+			smart_str_appendl(&s, "\n", 1);
+		}
+		itr = itr->child;
+	}
+
+	smart_str_appendl(&s, "\n", 1);
+	smart_str_0(&s);
+	php_error_docref(NULL TSRMLS_CC, E_WARNING, s.c);
+	smart_str_free(&s);
+}
+
+static svn_error_t *php_svn_auth_ssl_client_server_trust_prompter(
+	svn_auth_cred_ssl_server_trust_t **cred,
+	void *baton,
+	const char *realm,
+	apr_uint32_t failures,
+	const svn_auth_ssl_server_cert_info_t *cert_info,
+	svn_boolean_t may_save,
+	apr_pool_t *pool)
 {
-	
-	
-	
-	
-	 
+	const char *ignore;
+	TSRMLS_FETCH();
+
+	ignore = (const char*)svn_auth_get_parameter(SVN_G(ctx)->auth_baton, PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS);
+	if (ignore && atoi(ignore)) {
+		*cred = apr_palloc(SVN_G(pool), sizeof(**cred));
+		(*cred)->may_save = 0;
+		(*cred)->accepted_failures = failures;
+	}
+
+	return SVN_NO_ERROR;
+}
+
+static void php_svn_init_globals(zend_svn_globals *g)
+{
+	memset(g, 0, sizeof(*g));
+}
+
+static void init_svn_client(TSRMLS_D)
+{
 	svn_error_t *err;
-	apr_initialize();
-	
-	apr_pool_create(&SVN_G(pool), NULL);
-	
-	
-	
+	svn_boolean_t store_password_val = TRUE;
+	svn_auth_provider_object_t *provider;
+	svn_auth_baton_t *ab;
+
+	if (SVN_G(pool)) return;
+
+	SVN_G(pool) = svn_pool_create(NULL);
+
 	if ((err = svn_client_create_context (&SVN_G(ctx), SVN_G(pool)))) {
-		svn_handle_error (err, stdout, TRUE);
-		return 1;
+		php_svn_handle_error(err TSRMLS_CC);
+		return;
 	}
-	 
-	if ((err = svn_config_get_config (&(SVN_G(ctx)->config),
-                                    NULL, SVN_G(pool)))) {
-		svn_handle_error (err, stdout, TRUE);
-		return 1;
+
+	if ((err = svn_config_get_config(&SVN_G(ctx)->config, NULL, SVN_G(pool)))) {
+		php_svn_handle_error(err TSRMLS_CC);
+		return;
 	}
-	 
-	{	/* authentication */
-		svn_boolean_t store_password_val = TRUE;
-		svn_auth_provider_object_t *provider;
-		svn_auth_baton_t *ab;
-		
-		/* The whole list of registered providers */
-		apr_array_header_t *providers
-			= apr_array_make (SVN_G(pool), 10, sizeof (svn_auth_provider_object_t *));
-		
-		/* The main disk-caching auth providers, for both
-		'username/password' creds and 'username' creds.  */
-		svn_client_get_simple_provider (&provider, SVN_G(pool));
-		APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
-		svn_client_get_username_provider (&provider, SVN_G(pool));
-		APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
-		
-		/* The server-cert, client-cert, and client-cert-password providers. */
-		svn_client_get_ssl_server_trust_file_provider (&provider, SVN_G(pool));
-		APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
-		svn_client_get_ssl_client_cert_file_provider (&provider, SVN_G(pool));
-		APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
-		svn_client_get_ssl_client_cert_pw_file_provider (&provider, SVN_G(pool));
-		APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
-	
-		/* skip prompt stuff */
-		svn_auth_open (&ab, providers, SVN_G(pool));
-		/* turn off prompting */
-		svn_auth_set_parameter(ab, SVN_AUTH_PARAM_NON_INTERACTIVE, "");
-		/* turn off storing passwords */
-		svn_auth_set_parameter(ab, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
-		SVN_G(ctx)->auth_baton = ab;
-	}
-	return 0;
+
+	/* The whole list of registered providers */
+	apr_array_header_t *providers
+		= apr_array_make (SVN_G(pool), 10, sizeof (svn_auth_provider_object_t *));
+
+	/* The main disk-caching auth providers, for both
+	   'username/password' creds and 'username' creds.  */
+	svn_client_get_simple_provider (&provider, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+	svn_client_get_username_provider (&provider, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+	svn_client_get_ssl_server_trust_prompt_provider (&provider, php_svn_auth_ssl_client_server_trust_prompter, NULL, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+	/* The server-cert, client-cert, and client-cert-password providers. */
+	svn_client_get_ssl_server_trust_file_provider (&provider, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+	svn_client_get_ssl_client_cert_file_provider (&provider, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+	svn_client_get_ssl_client_cert_pw_file_provider (&provider, SVN_G(pool));
+	APR_ARRAY_PUSH (providers, svn_auth_provider_object_t *) = provider;
+
+
+	/* skip prompt stuff */
+	svn_auth_open (&ab, providers, SVN_G(pool));
+	/* turn off prompting */
+	svn_auth_set_parameter(ab, SVN_AUTH_PARAM_NON_INTERACTIVE, "");
+	/* turn off storing passwords */
+	svn_auth_set_parameter(ab, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
+	SVN_G(ctx)->auth_baton = ab;
 }
 
+PHP_FUNCTION(svn_auth_get_parameter)
+{
+	char *key;
+	int keylen;
+	const char *value;
 
-/* {{{ PHP_MINIT_FUNCTION
- */
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+
+	value = svn_auth_get_parameter(SVN_G(ctx)->auth_baton, key);
+	if (value) {
+		RETURN_STRING((char*)value, 1);
+	}
+}
+
+PHP_FUNCTION(svn_auth_set_parameter)
+{
+	char *key, *value;
+	int keylen, valuelen;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &key, &keylen, &value, &valuelen)) {
+		return;
+	}
+	init_svn_client(TSRMLS_C);
+
+	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
+}
+
+/* {{{ PHP_MINIT_FUNCTION */
 PHP_MINIT_FUNCTION(svn)
 {
-	/* If you have INI entries, uncomment these lines 
+	apr_initialize();
 	ZEND_INIT_MODULE_GLOBALS(svn, php_svn_init_globals, NULL);
+
+#define STRING_CONST(foo) REGISTER_STRING_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
+	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_USERNAME);
+	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_PASSWORD);
+	STRING_CONST(SVN_AUTH_PARAM_NON_INTERACTIVE);
+	STRING_CONST(SVN_AUTH_PARAM_DONT_STORE_PASSWORDS);
+	STRING_CONST(SVN_AUTH_PARAM_NO_AUTH_CACHE);
+	STRING_CONST(SVN_AUTH_PARAM_SSL_SERVER_FAILURES);
+	STRING_CONST(SVN_AUTH_PARAM_SSL_SERVER_CERT_INFO);
+	STRING_CONST(SVN_AUTH_PARAM_CONFIG);
+	STRING_CONST(SVN_AUTH_PARAM_SERVER_GROUP);
+	STRING_CONST(SVN_AUTH_PARAM_CONFIG_DIR);
+	STRING_CONST(PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS);
+	
+	/*
 	REGISTER_INI_ENTRIES();
 	*/
-	set_up_client_ctx();
 	return SUCCESS;
 }
 /* }}} */
 
-/* {{{ PHP_MSHUTDOWN_FUNCTION
- */
-PHP_MSHUTDOWN_FUNCTION(svn)
-{
-	/* uncomment this line if you have INI entries
-	UNREGISTER_INI_ENTRIES();
-	*/
-	return SUCCESS;
-}
-/* }}} */
-
-/* Remove if there's nothing to do at request start */
-/* {{{ PHP_RINIT_FUNCTION
- */
-PHP_RINIT_FUNCTION(svn)
-{
-	return SUCCESS;
-}
-/* }}} */
-
-/* Remove if there's nothing to do at request end */
-/* {{{ PHP_RSHUTDOWN_FUNCTION
- */
+/* {{{ PHP_RSHUTDOWN_FUNCTION */
 PHP_RSHUTDOWN_FUNCTION(svn)
 {
+	if (SVN_G(pool)) {
+		svn_pool_destroy(SVN_G(pool));
+		SVN_G(pool) = NULL;
+	}
 	return SUCCESS;
 }
 /* }}} */
 
-/* {{{ PHP_MINFO_FUNCTION
- */
+/* {{{ PHP_MINFO_FUNCTION */
 PHP_MINFO_FUNCTION(svn)
 {
+	char vstr[128];
+
 	php_info_print_table_start();
 	php_info_print_table_header(2, "svn support", "enabled");
+
+	php_svn_get_version(vstr, sizeof(vstr));
+	
+	php_info_print_table_row(2, "svn client version", vstr);
 	php_info_print_table_end();
 
 	/* Remove comments if you have entries in php.ini
@@ -215,176 +292,165 @@ PHP_MINFO_FUNCTION(svn)
 /* }}} */
 
 
-/* Remove the following function when you have succesfully modified config.m4
-   so that your module can be compiled into PHP, it exists only for testing
-   purposes. */
-
-/* Every user-visible function in PHP should document itself in the source */
-/* {{{ proto string confirm_svn_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
-PHP_FUNCTION(confirm_svn_compiled)
-{
-	char *arg = NULL;
-	int arg_len, len;
-	char string[256];
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &arg, &arg_len) == FAILURE) {
-		return;
-	}
-
-	len = sprintf(string, "Congratulations! You have successfully modified ext/%.78s/config.m4. Module %.78s is now compiled into PHP.", "svn", arg);
-	RETURN_STRINGL(string, len, 1);
-}
-/* }}} */
-/* The previous line is meant for vim and emacs, so it can correctly fold and 
-   unfold functions in source code. See the corresponding marks just before 
-   function definition, where the functions purpose is also documented. Please 
-   follow this convention for the convenience of others editing your code.
-*/
-
-
-
-
-
-
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
 
 PHP_FUNCTION(svn_checkout)
 {
-	char 	*repos_url = NULL,
-		*target_path = NULL;
-	int 	repos_url_len,
-		target_path_len;
+	char *repos_url = NULL, *target_path = NULL;
+	int repos_url_len, target_path_len;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
+	long revno = -1;
+	apr_pool_t *subpool;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", 
-		&repos_url, &repos_url_len, &target_path, &target_path_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", 
+			&repos_url, &repos_url_len, &target_path, &target_path_len, &revno) == FAILURE) {
 		return;
 	}
 	
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
 	
-	
-	/* grab the most recent version of the website. */
-	revision.kind = svn_opt_revision_head;
+	if (revno != -1) {
+		revision.kind = svn_opt_revision_number;
+		revision.value.number = revno;
+	} else {
+		revision.kind = svn_opt_revision_head;
+	}
 	
 	err = svn_client_checkout (NULL,
-				    repos_url,
-				     target_path,
-				     &revision,
-				     TRUE, /* yes, we want to recurse into the URL */
-				     SVN_G(ctx),
-				     SVN_G(pool));
+			repos_url,
+			target_path,
+			&revision,
+			TRUE, /* yes, we want to recurse into the URL */
+			SVN_G(ctx),
+			subpool);
+
 	if (err) {
-		svn_handle_error (err, stdout, TRUE);
-	} else {
-		/* printf ("deployment succeeded.\n"); */
+		php_svn_handle_error (err TSRMLS_CC);
 	}
+
+	svn_pool_destroy(subpool);
 }
 
 
 PHP_FUNCTION(svn_cat)
 {
-	char 	*repos_url = NULL;
-		 
-	int 	repos_url_len,
-		revision_no = -1,
-		size;
+	char *repos_url = NULL;
+	int repos_url_len, revision_no = -1, size;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
-	svn_stream_t *out;
-	svn_stringbuf_t *buf;
+	svn_stream_t *out = NULL;
+	svn_stringbuf_t *buf = NULL;
 	char *retdata =NULL;
+	apr_pool_t *subpool;
 
-	
-	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
 		&repos_url, &repos_url_len, &revision_no) == FAILURE) {
 		return;
 	}
-	
-	
-	svn_stream_for_stdout (&out, SVN_G(pool));
-	
-	
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	RETVAL_FALSE;
+
+
 	if (revision_no == -1) {
 		revision.kind = svn_opt_revision_head;
 	} else {
-		revision.kind =   svn_opt_revision_number;
+		revision.kind = svn_opt_revision_number;
 		revision.value.number = revision_no ;
 	}
-	
-	buf = svn_stringbuf_create("", SVN_G(pool));
-	out = svn_stream_from_stringbuf(buf, SVN_G(pool));
-	err = svn_client_cat (out, 
-				repos_url, 
-				&revision,
-                               SVN_G(ctx), SVN_G(pool));
-	if (err) {
-		svn_handle_error (err, stdout, TRUE);
-	} else {
-		/* printf ("deployment succeeded.\n"); */
+
+	buf = svn_stringbuf_create("", subpool);
+	if (!buf) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to allocate stringbuf");
+		goto cleanup;
 	}
-	retdata = emalloc(buf->len);
-	err = svn_stream_read (out, (char *)retdata, &size);
-	if (err) {
-		svn_handle_error (err, stdout, TRUE);
-	} else {
-		/* printf ("deployment succeeded.\n"); */
+
+	out = svn_stream_from_stringbuf(buf, subpool);
+	if (!out) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create svn stream");
+		goto cleanup;
 	}
-	RETURN_STRINGL(retdata, size,0);
+
+	err = svn_client_cat(out, repos_url, &revision, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
+
+	retdata = emalloc(buf->len + 1);
+	size = buf->len;
+	err = svn_stream_read(out, retdata, &size);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
 	
+	retdata[size] = '\0';
+	RETURN_STRINGL(retdata, size, 0);
+	retdata = NULL;
+
+cleanup:
+	svn_pool_destroy(subpool);
+	if (retdata) efree(retdata);
 }
 
 
 PHP_FUNCTION(svn_ls)
 {
-	char 	*repos_url = NULL;
-		 
-	int 	repos_url_len,
-		size,
-		revision_no = -1;
+	char *repos_url = NULL;
+	int repos_url_len, size, revision_no = -1;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	svn_stream_t *out;
 	svn_stringbuf_t *buf;
 	char *retdata =NULL;
-	
-	 
 	apr_hash_t *dirents;
 	apr_array_header_t *array;
 	int i;
+	apr_pool_t *subpool;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
-		&repos_url, &repos_url_len, &revision_no) == FAILURE) {
+			&repos_url, &repos_url_len, &revision_no) == FAILURE) {
 		return;
 	}
-	 
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	RETVAL_FALSE;
+ 
 	if (revision_no == -1) {
 		revision.kind = svn_opt_revision_head;
 	} else {
 		revision.kind =   svn_opt_revision_number;
 		revision.value.number = revision_no ;
 	}
+
 	/* grab the most recent version of the website. */
-	
-	 
-	 
-	
 	err = svn_client_ls (&dirents,
                 repos_url, 
                 &revision,
                 FALSE,
-                SVN_G(ctx), SVN_G(pool));
-  
+                SVN_G(ctx), subpool);
 	 
 	if (err) {
-		svn_handle_error (err, stdout, TRUE);
-	} else {
-		/* printf ("deployment succeeded.\n"); */
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
 	}
 	
-	array = svn_sort__hash (dirents, svn_sort_compare_items_as_paths,SVN_G(pool));
+	array = svn_sort__hash (dirents, svn_sort_compare_items_as_paths, subpool);
 	array_init(return_value);
 	
 	for (i = 0; i < array->nelts; ++i)
@@ -392,7 +458,6 @@ PHP_FUNCTION(svn_ls)
 		const char *utf8_entryname;
 		svn_dirent_t *dirent;
 		svn_sort__item_t *item;
-	
 		apr_time_t now = apr_time_now();
 		apr_time_exp_t exp_time;
 		apr_status_t apr_err;
@@ -401,16 +466,10 @@ PHP_FUNCTION(svn_ls)
 		const char   *utf8_timestr;
 		zval 	*row;
 		
-		
-		
 		item = &APR_ARRAY_IDX (array, i, svn_sort__item_t);
-
 		utf8_entryname = item->key;
-		
 		dirent = apr_hash_get (dirents, utf8_entryname, item->klen);
 
-		
-		
 		/* svn_time_to_human_cstring gives us something *way* too long
 		to use for this, so we have to roll our own.  We include
 		the year if the entry's time is not within half a year. */
@@ -422,7 +481,7 @@ PHP_FUNCTION(svn_ls)
 				      "%b %d %H:%M", &exp_time);
 		} else {
 			apr_err = apr_strftime (timestr, &size, sizeof (timestr),
-				      "%b %d  %Y", &exp_time);
+				      "%b %d %Y", &exp_time);
 		}
 		
 		/* if that failed, just zero out the string and print nothing */
@@ -430,8 +489,7 @@ PHP_FUNCTION(svn_ls)
 			timestr[0] = '\0';
 		
 		/* we need it in UTF-8. */
-		svn_utf_cstring_to_utf8 (&utf8_timestr, timestr,  SVN_G(pool));
-		
+		svn_utf_cstring_to_utf8 (&utf8_timestr, timestr, subpool);
 		 
 		MAKE_STD_ZVAL(row);
 		array_init(row);
@@ -443,7 +501,9 @@ PHP_FUNCTION(svn_ls)
 		add_assoc_string(row, "type", (dirent->kind == svn_node_dir) ? "dir" : "file",1);
 		add_next_index_zval(return_value,row); 
 	}
-	
+
+cleanup:
+	svn_pool_destroy(subpool);
 	
 }
 
@@ -456,24 +516,21 @@ php_svn_log_message_receiver (	void *baton,
 				const char *msg,
 				apr_pool_t *pool)
 {
-	zval 	*return_value =  (zval *)baton,
-		*row,
-		*paths;
-	char 	*path;
+	zval *return_value = (zval *)baton, *row, *paths;
+	char *path;
 	apr_hash_index_t *hi;
 	apr_array_header_t *sorted_paths;
 	int i;
 	TSRMLS_FETCH();
-	
-	if (rev == 0)
+
+	if (rev == 0) {
 		return SVN_NO_ERROR;
-	 
-	
+	}
+
 	MAKE_STD_ZVAL(row);
 	array_init(row);
 	add_assoc_long(row, "rev", (long) rev);
-	
-	
+
 	if (author) {
 		add_assoc_string(row, "author", (char *) author, 1);
 	}
@@ -483,78 +540,75 @@ php_svn_log_message_receiver (	void *baton,
 	if (date) {
 		add_assoc_string(row, "date", (char *) date, 1);
 	}
-	
-	
+
 	if (!changed_paths) {
-		add_next_index_zval(return_value,row); 
+		add_next_index_zval(return_value, row); 
 		return SVN_NO_ERROR;
 	}
-	
+
 	MAKE_STD_ZVAL(paths);
 	array_init(paths);
-	 
-	sorted_paths = svn_sort__hash (changed_paths,
-                                      svn_sort_compare_items_as_paths, SVN_G(pool));
-  
-            
+
+	sorted_paths = svn_sort__hash(changed_paths,
+			svn_sort_compare_items_as_paths, pool);
+
 	for (i = 0; i < sorted_paths->nelts; i++)
 	{
-	       svn_sort__item_t *item;
-	       svn_log_changed_path_t *log_item;
-	       zval *zpaths;
-	       
+		svn_sort__item_t *item;
+		svn_log_changed_path_t *log_item;
+		zval *zpaths;
+
 		MAKE_STD_ZVAL(zpaths);
 		array_init(zpaths);
-		item = &(APR_ARRAY_IDX (sorted_paths, i,
-                                                     svn_sort__item_t));
+		item = &(APR_ARRAY_IDX (sorted_paths, i, svn_sort__item_t));
 		const char *path = item->key;
 		log_item = apr_hash_get (changed_paths, item->key, item->klen);
 
-
-	       add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
+		add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
 		add_assoc_string(zpaths, "path", (char *) item->key, 1);
+
 		if (log_item->copyfrom_path
-			   && SVN_IS_VALID_REVNUM (log_item->copyfrom_rev)) {
+				&& SVN_IS_VALID_REVNUM (log_item->copyfrom_rev)) {
 			add_assoc_string(zpaths, "copyfrom", (char *) log_item->copyfrom_path, 1);
 			add_assoc_long(zpaths, "rev", (long) log_item->copyfrom_rev);
-		
 		} else {
-		
+
 		}
 
 		add_next_index_zval(paths,zpaths);
-	
 	}
-       add_assoc_zval(row,"paths",paths);
-	add_next_index_zval(return_value,row); 
+
+	add_assoc_zval(row,"paths",paths);
+	add_next_index_zval(return_value, row); 
 	return SVN_NO_ERROR;
 }
  
-
 PHP_FUNCTION(svn_log)
 {
-	char 	*repos_url 	= NULL,
-		*utf8_repos_url = NULL; 
-	int 	repos_url_len;
+	char *repos_url = NULL, *utf8_repos_url = NULL; 
+	int repos_url_len;
 	int	revision = -1;
-		 
 	svn_error_t *err;
-	svn_opt_revision_t 	start_revision = { 0 },
-				end_revision = { 0 };
-	
+	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
 	char *retdata =NULL;
 	int size;
 	apr_array_header_t *targets;
-	
 	const char *target;
 	int i;
+	apr_pool_t *subpool;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
-		&repos_url, &repos_url_len, &revision) == FAILURE) {
+			&repos_url, &repos_url_len, &revision) == FAILURE) {
 		return;
 	}
-	 
-	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url,  SVN_G(pool));
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	RETVAL_FALSE;
+  
+	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
 	if (revision == -1) {
 		start_revision.kind =  svn_opt_revision_head;
 		end_revision.kind   =  svn_opt_revision_number;
@@ -566,11 +620,10 @@ PHP_FUNCTION(svn_log)
 		end_revision.value.number = revision ;
 	}
 	
-	targets = apr_array_make (SVN_G(pool), 1, sizeof(char *));
+	targets = apr_array_make (subpool, 1, sizeof(char *));
 	
 	APR_ARRAY_PUSH(targets, const char *) = 
-		svn_path_canonicalize(utf8_repos_url, SVN_G(pool));
-	//MAKE_STD_ZVAL(return_value);
+		svn_path_canonicalize(utf8_repos_url, subpool);
 	array_init(return_value);
 	
 	err = svn_client_log(
@@ -581,19 +634,68 @@ PHP_FUNCTION(svn_log)
 		1, // svn_boolean_t strict_node_history, 
 		php_svn_log_message_receiver,
 		(void *) return_value,
-		SVN_G(ctx), SVN_G(pool));
+		SVN_G(ctx), subpool);
  
 	if (err) {
-		svn_handle_error (err, stdout, TRUE);
-		RETURN_FALSE;
-	} else {
-		// printf ("deployment succeeded.\n"); 
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
 	}
-	
+
+	svn_pool_destroy(subpool);
 }
 
+#if 0
+PHP_FUNCTION(svn_diff)
+{
+	char *tmp_dir;
+	char outname[256], errname[256];
+	apr_pool_t *subpool;
 
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	RETVAL_FALSE;
+ 
+ 	apr_temp_dir_get(&tmp_dir, subpool);
+	sprintf(outname, "%s/phpsvnXXXXXX", tmp_dir);
+	apr_file_mktemp(&outfile, outname, APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE);
 
+	sprintf(errname, "%s/phpsvnXXXXXX", tmp_dir);
+	apr_file_mktemp(&errfile, errname, APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE);
+
+	err = svn_client_dir(&diff_options, path1, rev1, path2, rev2, recurse, ignore, no_diff_deleted,
+		outfile, errfile, SVN_G(ctx), subpool);
+
+	/* 'bless' the apr files into streams and return those */
+
+	svn_pool_destroy(subpool);
+}
+#endif
+
+static void php_svn_get_version(char *buf, int buflen)
+{
+	const svn_version_t *vers;
+	vers = svn_client_version();
+
+	if (strlen(vers->tag))
+		snprintf(buf, buflen, "%d.%d.%d#%s", vers->major, vers->minor, vers->patch, vers->tag);
+	else
+		snprintf(buf, buflen, "%d.%d.%d", vers->major, vers->minor, vers->patch);
+}
+
+PHP_FUNCTION(svn_client_version)
+{
+	char vers[128];
+
+	if (ZEND_NUM_ARGS()) {
+		WRONG_PARAM_COUNT;
+	}
+
+	php_svn_get_version(vers, sizeof(vers));
+	RETURN_STRING(vers, 1);
+}
 
 /*
  * Local variables:

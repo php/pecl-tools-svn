@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2004 The PHP Group                                |
+  | Copyright (c) 1997-2005 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.0 of the PHP license,       |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,8 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author:  Alan Knowles <alan@akbkhome.com>                            |
+  | Authors: Alan Knowles <alan@akbkhome.com>                            |
+  |          Wez Furlong <wez@omniti.com>                                |
   +----------------------------------------------------------------------+
 */
 
@@ -41,15 +42,14 @@ PHP_RINIT_FUNCTION(svn);
 PHP_RSHUTDOWN_FUNCTION(svn);
 PHP_MINFO_FUNCTION(svn);
 
-PHP_FUNCTION(confirm_svn_compiled);	/* For testing, remove later. */
 PHP_FUNCTION(svn_checkout);
 PHP_FUNCTION(svn_cat);
 PHP_FUNCTION(svn_ls);
 PHP_FUNCTION(svn_log);
-/* 
-  	Declare any global variables you may need between the BEGIN
-	and END macros here:     
-*/
+PHP_FUNCTION(svn_auth_set_parameter);
+PHP_FUNCTION(svn_auth_get_parameter);
+PHP_FUNCTION(svn_client_version);
+
 ZEND_BEGIN_MODULE_GLOBALS(svn)
 	apr_pool_t *pool;
 	svn_client_ctx_t *ctx;
