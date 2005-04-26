@@ -33,6 +33,8 @@
 #include "svn_config.h"
 #include "svn_auth.h"
 #include "svn_path.h"
+#include "svn_fs.h"
+#include "svn_repos.h"
 
 /* If you declare any globals in php_svn.h uncomment this: */
 ZEND_DECLARE_MODULE_GLOBALS(svn)
@@ -54,6 +56,8 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_auth_get_parameter,	NULL)
 	PHP_FE(svn_client_version, NULL)
 	PHP_FE(svn_diff, NULL)
+	PHP_FE(svn_cleanup, NULL)
+	PHP_FE(svn_repos_create, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in svn_functions[] */
 };
 /* }}} */
@@ -254,6 +258,9 @@ PHP_MINIT_FUNCTION(svn)
 	STRING_CONST(SVN_AUTH_PARAM_SERVER_GROUP);
 	STRING_CONST(SVN_AUTH_PARAM_CONFIG_DIR);
 	STRING_CONST(PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS);
+	STRING_CONST(SVN_FS_CONFIG_FS_TYPE);
+	STRING_CONST(SVN_FS_TYPE_BDB);
+	STRING_CONST(SVN_FS_TYPE_FSFS);
 	
 	/*
 	REGISTER_INI_ENTRIES();
@@ -795,6 +802,111 @@ PHP_FUNCTION(svn_diff)
 	svn_pool_destroy(subpool);
 }
 /* }}} */
+
+/* {{{ proto bool svn_cleanup(string workingdir)
+   Recursively cleanup a working copy directory, finishing any incomplete operations, removing lockfiles, etc. */
+PHP_FUNCTION(svn_cleanup)
+{
+	char *workingdir;
+	int len;
+	svn_error_t *err;
+	apr_pool_t *subpool;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &workingdir, &len)) {
+		RETURN_FALSE;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	
+	err = svn_client_cleanup(workingdir, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+	
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+static int replicate_hash(void *pDest, int num_args, va_list args, zend_hash_key *key)
+{
+	zval **val = (zval **)pDest;
+	apr_hash_t *hash = va_arg(args, apr_hash_t*);
+	
+	if (key->nKeyLength && Z_TYPE_PP(val) == IS_STRING) {
+		/* apr doesn't want the NUL terminator in its keys */
+		apr_hash_set(hash, key->arKey, key->nKeyLength-1, Z_STRVAL_PP(val));
+	}
+
+	va_end(args);
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+static apr_hash_t *replicate_zend_hash_to_apr_hash(zval *arr, apr_pool_t *pool TSRMLS_DC)
+{
+	apr_hash_t *hash;
+
+	if (!arr) return NULL;
+
+	hash = apr_hash_make(pool);
+	
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr), replicate_hash, 1, hash);
+
+	return hash;
+}
+
+/* {{{ proto bool svn_repos_create(string path [, array config [, array fsconfig]])
+   Create a new subversion repository at path */
+PHP_FUNCTION(svn_repos_create)
+{
+	char *path;
+	int pathlen;
+	zval *config = NULL;
+	zval *fsconfig = NULL;
+	apr_hash_t *config_hash = NULL;
+	apr_hash_t *fsconfig_hash = NULL;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	svn_repos_t *repos = NULL;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|a!a!",
+				&path, &pathlen, &config, &fsconfig)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	
+	config_hash = replicate_zend_hash_to_apr_hash(config, subpool TSRMLS_CC);
+	fsconfig_hash = replicate_zend_hash_to_apr_hash(fsconfig, subpool TSRMLS_CC);
+
+	err = svn_repos_create(&repos, path, NULL, NULL, config_hash, fsconfig_hash, subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+
+	if (repos) {
+		RETVAL_TRUE;
+	} else {
+		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
 
 static void php_svn_get_version(char *buf, int buflen)
 {
