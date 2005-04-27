@@ -60,7 +60,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_commit, NULL)
 	PHP_FE(svn_add, NULL)
 	PHP_FE(svn_status, NULL)
-	PHP_FE(svn_update, NULL)
+/*	PHP_FE(svn_update, NULL) */
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
