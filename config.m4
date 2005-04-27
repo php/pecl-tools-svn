@@ -19,17 +19,32 @@ if test "$PHP_SVN" != "no"; then
   fi
   if test -x $PHP_SVN ; then
     AC_MSG_RESULT($PHP_SVN)
+    PHP_SVN_INCLUDES=`$PHP_SVN --includes`
+    PHP_SVN_CFLAGS=`$PHP_SVN --cppflags --cflags`
+    PHP_SVN_LDFLAGS=`$PHP_SVN --ldflags --libs`
   else
     AC_MSG_RESULT([not found])
-    AC_MSG_ERROR([
+    AC_MSG_WARN([
 Did not find svn-config; please ensure that you have installed
 the svn developer package or equivalent for you system.
 ])
+    PHP_SVN_INCLUDES=""
+    for i in $PHP_SVN /usr/local/bin /usr/bin ; do
+      if test -r $i/include/subversion-1/svn_client.h ; then
+        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/subversion-1"
+        PHP_SVN_LDFLAGS="-L$i/lib"
+        if test -d $i/lib64 ; then
+          PHP_SVN_LDFLAGS="-L$i/lib64 $PHP_SVN_LDFLAGS"
+        fi
+        PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -lsvn_client-1 -lapr-0"
+      fi
+      if test -r $i/include/apr-0/apr.h ; then
+        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apr-0"
+      elif test -r $i/include/apache2/apr.h ; then
+        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apache2"
+      fi
+    done
   fi
-
-  PHP_SVN_INCLUDES=`$PHP_SVN --includes`
-  PHP_SVN_CFLAGS=`$PHP_SVN --cppflags --cflags`
-  PHP_SVN_LDFLAGS=`$PHP_SVN --ldflags --libs`
 
   PHP_CHECK_LIBRARY(svn_client-1,svn_client_create_context,
   [
