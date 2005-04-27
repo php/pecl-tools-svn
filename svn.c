@@ -60,7 +60,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_commit, NULL)
 	PHP_FE(svn_add, NULL)
 	PHP_FE(svn_status, NULL)
-/*	PHP_FE(svn_update, NULL) */
+	PHP_FE(svn_update, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -166,8 +166,6 @@ static svn_error_t *php_svn_get_commit_log(const char **log_msg, const char **tm
 	*tmp_file = NULL;
 	return SVN_NO_ERROR;
 }
-
-
 
 static void init_svn_client(TSRMLS_D)
 {
@@ -1213,6 +1211,50 @@ PHP_FUNCTION(svn_status)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto array svn_update(string path [, int revno [, bool recurse]])
+   Update working copy at path to revno */
+PHP_FUNCTION(svn_update)
+{
+	char *path;
+	int pathlen;
+	zend_bool recurse = 1;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	svn_revnum_t result_rev;
+	svn_opt_revision_t rev;
+	long revno = -1;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lb",
+				&path, &pathlen, &revno, &recurse)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (revno > 0) {
+		rev.kind = svn_opt_revision_number;
+		rev.value.number = revno;
+	} else {
+		rev.kind = svn_opt_revision_head;
+	}
+	err = svn_client_update(&result_rev, path, &rev, recurse,
+			SVN_G(ctx), subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_LONG(result_rev);
 	}
 
 	svn_pool_destroy(subpool);

@@ -22,6 +22,7 @@ if ($x) {
 		print_r(svn_commit("testing the commit thingy\nyeeha\n", array('/tmp/wez-svn-wd/foobar.txt')));
 		print_r(svn_status('/tmp/wez-svn-wd'));
 		print_r(svn_log("file:///tmp/wez-svn-foo"));
+		debug_zval_dump(svn_update('/tmp/wez-svn-wd'));
 	}
 	svn_repos_recover('/tmp/wez-svn-foo');
 }
