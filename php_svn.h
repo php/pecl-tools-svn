@@ -52,17 +52,19 @@ PHP_FUNCTION(svn_client_version);
 PHP_FUNCTION(svn_diff);
 PHP_FUNCTION(svn_cleanup);
 
+PHP_FUNCTION(svn_commit);
+PHP_FUNCTION(svn_add);
+PHP_FUNCTION(svn_status);
+PHP_FUNCTION(svn_update);
+
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
-
-/* TODO: */
 PHP_FUNCTION(svn_repos_hotcopy);
 
-PHP_FUNCTION(svn_status);
+/* TODO: */
+
 PHP_FUNCTION(svn_blame);
 PHP_FUNCTION(svn_merge);
-PHP_FUNCTION(svn_update);
-PHP_FUNCTION(svn_commit);
 PHP_FUNCTION(svn_revert);
 PHP_FUNCTION(svn_resolved);
 PHP_FUNCTION(svn_copy);
@@ -75,7 +77,6 @@ PHP_FUNCTION(svn_url_from_path);
 PHP_FUNCTION(svn_uuid_from_url);
 PHP_FUNCTION(svn_uuid_from_path);
 PHP_FUNCTION(svn_switch);
-PHP_FUNCTION(svn_add);
 PHP_FUNCTION(svn_mkdir);
 PHP_FUNCTION(svn_delete);
 PHP_FUNCTION(svn_import);
@@ -85,17 +86,6 @@ ZEND_BEGIN_MODULE_GLOBALS(svn)
 	apr_pool_t *pool;
 	svn_client_ctx_t *ctx;
 ZEND_END_MODULE_GLOBALS(svn)
- 
-
-/* In every utility function you add that needs to use variables 
-   in php_svn_globals, call TSRMLS_FETCH(); after declaring other 
-   variables used by that function, or better yet, pass in TSRMLS_CC
-   after the last function argument and declare your utility function
-   with TSRMLS_DC after the last declared argument.  Always refer to
-   the globals in your function as SVN_G(variable).  You are 
-   encouraged to rename these macros something shorter, see
-   examples in any other php module directory.
-*/
 
 #ifdef ZTS
 #define SVN_G(v) TSRMG(svn_globals_id, zend_svn_globals *, v)

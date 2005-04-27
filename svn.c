@@ -57,9 +57,14 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_client_version, NULL)
 	PHP_FE(svn_diff, NULL)
 	PHP_FE(svn_cleanup, NULL)
+	PHP_FE(svn_commit, NULL)
+	PHP_FE(svn_add, NULL)
+	PHP_FE(svn_status, NULL)
+	PHP_FE(svn_update, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
-	{NULL, NULL, NULL}	/* Must be the last line in svn_functions[] */
+	PHP_FE(svn_repos_hotcopy, NULL)
+	{NULL, NULL, NULL}
 };
 /* }}} */
 
@@ -154,6 +159,16 @@ static void php_svn_init_globals(zend_svn_globals *g)
 	memset(g, 0, sizeof(*g));
 }
 
+static svn_error_t *php_svn_get_commit_log(const char **log_msg, const char **tmp_file,
+		apr_array_header_t *commit_items, void *baton, apr_pool_t *pool)
+{
+	*log_msg = (const char*)baton;
+	*tmp_file = NULL;
+	return SVN_NO_ERROR;
+}
+
+
+
 static void init_svn_client(TSRMLS_D)
 {
 	svn_error_t *err;
@@ -175,6 +190,8 @@ static void init_svn_client(TSRMLS_D)
 		return;
 	}
 
+	SVN_G(ctx)->log_msg_func = php_svn_get_commit_log;
+	
 	/* The whole list of registered providers */
 	apr_array_header_t *providers
 		= apr_array_make (SVN_G(pool), 10, sizeof (svn_auth_provider_object_t *));
@@ -248,6 +265,7 @@ PHP_MINIT_FUNCTION(svn)
 	ZEND_INIT_MODULE_GLOBALS(svn, php_svn_init_globals, NULL);
 
 #define STRING_CONST(foo) REGISTER_STRING_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
+#define LONG_CONST(foo) REGISTER_LONG_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
 	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_USERNAME);
 	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_PASSWORD);
 	STRING_CONST(SVN_AUTH_PARAM_NON_INTERACTIVE);
@@ -262,6 +280,22 @@ PHP_MINIT_FUNCTION(svn)
 	STRING_CONST(SVN_FS_CONFIG_FS_TYPE);
 	STRING_CONST(SVN_FS_TYPE_BDB);
 	STRING_CONST(SVN_FS_TYPE_FSFS);
+
+	LONG_CONST(svn_wc_status_none);
+	LONG_CONST(svn_wc_status_unversioned);
+	LONG_CONST(svn_wc_status_normal);
+	LONG_CONST(svn_wc_status_added);
+	LONG_CONST(svn_wc_status_missing);
+	LONG_CONST(svn_wc_status_deleted);
+	LONG_CONST(svn_wc_status_replaced);
+	LONG_CONST(svn_wc_status_modified);
+	LONG_CONST(svn_wc_status_merged);
+	LONG_CONST(svn_wc_status_conflicted);
+	LONG_CONST(svn_wc_status_ignored);
+	LONG_CONST(svn_wc_status_obstructed);
+	LONG_CONST(svn_wc_status_external);
+	LONG_CONST(svn_wc_status_incomplete);
+
 	
 	/*
 	REGISTER_INI_ENTRIES();
@@ -303,6 +337,8 @@ PHP_MINFO_FUNCTION(svn)
 
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
 
+/* {{{ proto bool svn_checkout(string repos, string targetpath [, int revision])
+   Checks out a particular revision from repos into targetpath */
 PHP_FUNCTION(svn_checkout)
 {
 	char *repos_url = NULL, *target_path = NULL;
@@ -340,10 +376,14 @@ PHP_FUNCTION(svn_checkout)
 
 	if (err) {
 		php_svn_handle_error (err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
 	}
 
 	svn_pool_destroy(subpool);
 }
+/* }}} */
 
 
 PHP_FUNCTION(svn_cat)
@@ -935,6 +975,244 @@ PHP_FUNCTION(svn_repos_recover)
 		RETVAL_FALSE;
 	} else {
 		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto bool svn_repos_hotcopy(string repospath, string destpath, bool cleanlogs)
+   Make a hot-copy of the repos at repospath; copy it to destpath */
+PHP_FUNCTION(svn_repos_hotcopy)
+{
+	char *path, *dest;
+	int pathlen, destlen;
+	zend_bool cleanlogs;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssb",
+				&path, &pathlen, &dest, &destlen, &cleanlogs)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	
+	err = svn_repos_hotcopy(path, dest, cleanlogs, subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+static int replicate_array(void *pDest, int num_args, va_list args, zend_hash_key *key)
+{
+	zval **val = (zval **)pDest;
+	apr_pool_t *pool = (apr_pool_t*)va_arg(args, apr_pool_t*);
+	apr_array_header_t *arr = (apr_array_header_t*)va_arg(args, apr_array_header_t*);
+
+	if (Z_TYPE_PP(val) == IS_STRING) {
+		APR_ARRAY_PUSH(arr, const char*) = apr_pstrdup(pool, Z_STRVAL_PP(val));
+	}
+
+	va_end(args);
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+
+static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_t *pool TSRMLS_DC)
+{
+	apr_array_header_t *apr_arr = apr_array_make(pool, zend_hash_num_elements(Z_ARRVAL_P(arr)), sizeof(const char*));
+
+	if (!apr_arr) return NULL;
+
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr), replicate_array, 2, pool, apr_arr);
+
+	return apr_arr;
+}
+
+/* {{{ proto array svn_commit(string log, array targets [, bool dontrecurse])
+   Make a hot-copy of the repos at repospath; copy it to destpath */
+PHP_FUNCTION(svn_commit)
+{
+	char *log;
+	int loglen;
+	zend_bool dontrecurse = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	svn_client_commit_info_t *info = NULL;
+	zval *targets = NULL;
+	apr_array_header_t *targets_array;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
+				&log, &loglen, &targets, &dontrecurse)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	SVN_G(ctx)->log_msg_baton = log;
+
+	targets_array = replicate_zend_hash_to_apr_array(targets, subpool);
+	
+	err = svn_client_commit(&info, targets_array, dontrecurse, SVN_G(ctx), subpool);
+	SVN_G(ctx)->log_msg_baton = NULL;
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		array_init(return_value);
+		add_next_index_long(return_value, info->revision);
+		add_next_index_string(return_value, (char*)info->date, 1);
+		add_next_index_string(return_value, (char*)info->author, 1);
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto array svn_add(string path [, bool recursive [, bool force]])
+   Schedule the addition of a file in a working directory */
+PHP_FUNCTION(svn_add)
+{
+	char *path;
+	int pathlen;
+	zend_bool recurse = 1, force = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bb",
+				&path, &pathlen, &recurse, &force)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	err = svn_client_add2((const char*)path, recurse, force, SVN_G(ctx), subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto array svn_status(string path [, bool recursive [, bool get_all [, bool update [, bool no_ignore]]]])
+   Schedule the addition of a file in a working directory */
+
+static void status_func(void *baton, const char *path, svn_wc_status_t *status)
+{
+	zval *return_value = (zval*)baton;
+	zval *entry;
+	TSRMLS_FETCH();
+
+	MAKE_STD_ZVAL(entry);
+	array_init(entry);
+	
+	add_assoc_string(entry, "path", (char*)path, 1);
+	if (status) {
+		add_assoc_long(entry, "text_status", status->text_status);
+		add_assoc_long(entry, "repos_text_status", status->repos_text_status);
+		add_assoc_long(entry, "prop_status", status->prop_status);
+		add_assoc_long(entry, "repos_prop_status", status->repos_prop_status);
+		if (status->locked) add_assoc_bool(entry, "locked", status->locked);
+		if (status->copied) add_assoc_bool(entry, "copied", status->copied);
+		if (status->switched) add_assoc_bool(entry, "switched", status->switched);
+
+		if (status->entry) {
+			if (status->entry->name) {
+				add_assoc_string(entry, "name", (char*)status->entry->name, 1);
+			}
+			if (status->entry->url) {
+				add_assoc_string(entry, "url", (char*)status->entry->url, 1);
+			}
+			if (status->entry->repos) {
+				add_assoc_string(entry, "repos", (char*)status->entry->repos, 1);
+			}
+
+			add_assoc_long(entry, "revision", status->entry->revision);
+			add_assoc_long(entry, "kind", status->entry->kind);
+			add_assoc_long(entry, "schedule", status->entry->schedule);
+			if (status->entry->deleted) add_assoc_bool(entry, "deleted", status->entry->deleted);
+			if (status->entry->absent) add_assoc_bool(entry, "absent", status->entry->absent);
+			if (status->entry->incomplete) add_assoc_bool(entry, "incomplete", status->entry->incomplete);
+
+			if (status->entry->copyfrom_url) {
+				add_assoc_string(entry, "copyfrom_url", (char*)status->entry->copyfrom_url, 1);
+				add_assoc_long(entry, "copyfrom_rev", status->entry->copyfrom_rev);
+			}
+
+			if (status->entry->cmt_author) {
+				add_assoc_long(entry, "cmt_date", apr_time_sec(status->entry->cmt_date));
+				add_assoc_long(entry, "cmt_rev", status->entry->cmt_rev);
+				add_assoc_string(entry, "cmt_author", (char*)status->entry->cmt_author, 1);
+			}
+			if (status->entry->prop_time) {
+				add_assoc_long(entry, "prop_time", apr_time_sec(status->entry->prop_time));
+			}
+
+			if (status->entry->text_time) {
+				add_assoc_long(entry, "text_time", apr_time_sec(status->entry->text_time));
+			}
+		}
+	}
+	
+	add_next_index_zval(return_value, entry);
+}
+
+PHP_FUNCTION(svn_status)
+{
+	char *path;
+	int pathlen;
+	zend_bool recurse = 1, get_all = 0, update = 0, no_ignore = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	svn_revnum_t result_rev;
+	svn_opt_revision_t rev;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bbbb",
+				&path, &pathlen, &recurse, &get_all, &update, &no_ignore)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	array_init(return_value);
+	rev.kind = svn_opt_revision_head;
+	err = svn_client_status(&result_rev, path, &rev, status_func, return_value,
+			recurse, get_all, update, no_ignore, SVN_G(ctx), subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
 	}
 
 	svn_pool_destroy(subpool);
