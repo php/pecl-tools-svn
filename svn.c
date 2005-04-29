@@ -711,6 +711,8 @@ static size_t php_apr_file_read(php_stream *stream, char *buf, size_t count TSRM
 
 	apr_file_read(thefile, buf, &nbytes);
 
+	if (nbytes == 0) stream->eof = 1;
+
 	return (size_t)nbytes;
 }
 
@@ -1066,7 +1068,7 @@ PHP_FUNCTION(svn_commit)
 
 	SVN_G(ctx)->log_msg_baton = log;
 
-	targets_array = replicate_zend_hash_to_apr_array(targets, subpool);
+	targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
 	
 	err = svn_client_commit(&info, targets_array, dontrecurse, SVN_G(ctx), subpool);
 	SVN_G(ctx)->log_msg_baton = NULL;
