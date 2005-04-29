@@ -29,7 +29,7 @@ Did not find svn-config; please ensure that you have installed
 the svn developer package or equivalent for you system.
 ])
     PHP_SVN_INCLUDES=""
-    for i in $PHP_SVN /usr/local/bin /usr/bin /usr ; do
+    for i in $PHP_SVN /usr/local /usr ; do
       if test -r $i/include/subversion-1/svn_client.h ; then
         PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/subversion-1"
         PHP_SVN_LDFLAGS="-L$i/lib"
