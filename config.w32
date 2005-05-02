@@ -1,10 +1,7 @@
 // $Id$
 // vim:ft=javascript
 
-if (PHP_SVN != "no") {
-	EXTENSION("svn", "svn.c");
-}
-
+ 
 ARG_WITH("svn", "for svn support", "no");
 
 if (PHP_SVN != "no") {
