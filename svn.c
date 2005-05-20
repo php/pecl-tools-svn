@@ -355,6 +355,10 @@ PHP_MINIT_FUNCTION(svn)
 	LONG_CONST(svn_node_file);
 	LONG_CONST(svn_node_dir);
 	LONG_CONST(svn_node_unknown);
+	
+	/* this is probably temporary until we sort out a proper revision parser. */
+	REGISTER_LONG_CONSTANT(SVN_REVISON_HEAD, -1, CONST_CS|CONST_PERSISTENT)
+
 
 	le_svn_repos = zend_register_list_destructors_ex(php_svn_repos_dtor,
 			NULL, "svn-repos", module_number);
@@ -365,9 +369,7 @@ PHP_MINIT_FUNCTION(svn)
 	le_svn_fs_root = zend_register_list_destructors_ex(php_svn_fs_root_dtor,
 			NULL, "svn-fs-root", module_number);
 		
-	/*
-	REGISTER_INI_ENTRIES();
-	*/
+ 
 	return SUCCESS;
 }
 /* }}} */
@@ -707,7 +709,7 @@ PHP_FUNCTION(svn_log)
 {
 	char *repos_url = NULL, *utf8_repos_url = NULL; 
 	int repos_url_len;
-	int	revision = -1;
+	int revision = -2;
 	svn_error_t *err;
 	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
 	char *retdata =NULL;
@@ -729,16 +731,20 @@ PHP_FUNCTION(svn_log)
 	RETVAL_FALSE;
   
 	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
-	if (revision <= 0) {
+	if (revision < -1) {
 		start_revision.kind =  svn_opt_revision_head;
 		end_revision.kind   =  svn_opt_revision_number;
 		end_revision.value.number = 1 ;
-	} else {
+	} else  if (revision == -1) {
+		start_revision.kind =  svn_opt_revision_head;
+		end_revision.kind   =  svn_opt_revision_head;
+	} else {						
 		start_revision.kind =  svn_opt_revision_number;
 		start_revision.value.number = revision ;
 		end_revision.kind   =  svn_opt_revision_number;
 		end_revision.value.number = revision ;
 	}
+	 
 	
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 	
