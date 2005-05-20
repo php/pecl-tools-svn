@@ -357,7 +357,7 @@ PHP_MINIT_FUNCTION(svn)
 	LONG_CONST(svn_node_unknown);
 	
 	/* this is probably temporary until we sort out a proper revision parser. */
-	REGISTER_LONG_CONSTANT("SVN_REVISON_HEAD", -1, CONST_CS|CONST_PERSISTENT)
+	REGISTER_LONG_CONSTANT("SVN_REVISON_HEAD", -1, CONST_CS|CONST_PERSISTENT);
 
 
 	le_svn_repos = zend_register_list_destructors_ex(php_svn_repos_dtor,
