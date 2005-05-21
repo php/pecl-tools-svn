@@ -903,6 +903,12 @@ PHP_FUNCTION(svn_diff)
 		php_stream *stm = NULL;
 
 		array_init(return_value);
+		
+		/*REMOVE ME WHEN STREAMS WORK..*/
+		add_next_index_string(return_value, outname, 1);
+		add_next_index_string(return_value, errname, 1);
+		svn_pool_destroy(subpool); 
+		return;
 
 		/* 'bless' the apr files into streams and return those */
 		stm = php_stream_alloc(&php_apr_stream_ops, outfile, 0, "rw");
