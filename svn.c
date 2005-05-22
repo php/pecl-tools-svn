@@ -784,9 +784,9 @@ static size_t php_apr_file_read(php_stream *stream, char *buf, size_t count TSRM
 {
 	apr_file_t *thefile = (apr_file_t*)stream->abstract;
 	apr_size_t nbytes = (apr_size_t)count;
-
+	
 	apr_file_read(thefile, buf, &nbytes);
-
+	
 	if (nbytes == 0) stream->eof = 1;
 
 	return (size_t)nbytes;
@@ -901,15 +901,14 @@ PHP_FUNCTION(svn_diff)
 	} else {
 		zval *t;
 		php_stream *stm = NULL;
-
+		apr_off_t off = (apr_off_t)0;
+		
 		array_init(return_value);
 		
-		/*REMOVE ME WHEN STREAMS WORK..*/
-		add_next_index_string(return_value, outname, 1);
-		add_next_index_string(return_value, errname, 1);
-		svn_pool_destroy(subpool); 
-		return;
-
+		/* set the file pointer to the beginning of the file */
+		apr_file_seek(outfile, APR_SET, &off);
+		apr_file_seek(errfile, APR_SET, &off);
+		
 		/* 'bless' the apr files into streams and return those */
 		stm = php_stream_alloc(&php_apr_stream_ops, outfile, 0, "rw");
 		MAKE_STD_ZVAL(t);
