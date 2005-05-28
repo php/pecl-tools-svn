@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<package 
+      packagerversion="1.4.0a4" 
+      version="2.0" 
+      xmlns="http://pear.php.net/dtd/package-2.0" 
+      xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0
+                  http://pear.php.net/dtd/tasks-1.0.xsd
+                  http://pear.php.net/dtd/package-2.0
+                  http://pear.php.net/dtd/package-2.0.xsd">
+  <name>svn</name>
+  <channel>pecl.php.net</channel>
+  <summary>PHP Bindings for the Subversion Revision control system.</summary>
+  
+  <description>
+  
+  Bindings for libsvn, 
+  
+  - for more details, have a look at the examples, or google for FlexySvn
+  
+  </description>
+  <lead>
+    <name>Alan Knowles</name>
+    <user>alan_k</user>
+    <email>alan@akbkhome.com</email>
+    <active>yes</active>
+  </lead>
+  
+  <lead>
+    <name>Wez Furlong</name>
+    <user>wez</user>
+    <email>wez@omniti.com</email>
+    <active>yes</active>
+  </lead>
+  
+  
+  <!-- package2.xml design is borked - it has no defined release section..... -->
+  
+  <!-- RELEASE SECTION -->
+    <date>2005-05-28</date>
+    <time>13:04:29</time>
+    <version>
+      <release>0.1</release>
+      <api>0.1</api>
+    </version>
+    
+    
+    <stability>
+      <release>beta</release>
+      <api>beta</api>
+    </stability>
+    
+    <!-- this is a totally borked location for licence tag -->
+     <license uri="http://www.php.net/licence">PHP Licence</license>
+    
+    <notes>
+      - First working release (works ok here!)
+    </notes>
+  <!-- /RELEASE SECTION -->
+   
+  
+  <contents>
+    <dir name="/">
+      
+      <file name="config.m4" role="src" />
+      <file name="config.w32" role="src" />
+      <file name="CREDITS" role="src" />
+      <file name="EXPERIMENTAL" role="src" />
+      <file name="php_svn.h" role="src" />
+      <file name="svn.c" role="src" />
+      
+      <dir name="examples">
+        <file baseinstalldir="/" name="hook_copycommit.php" role="doc" />
+        <file baseinstalldir="/" name="hook_emailcommit.php" role="doc" />
+      </dir> 
+    </dir> 
+  </contents>
+  
+  
+  
+  <dependencies>
+    <required>
+      <php>
+        <min>4.0.0</min>
+        <max>6.0.0</max>
+      </php>
+      <pearinstaller>
+        <min>1.4.0a1</min>
+      </pearinstaller>
+    </required>
+  </dependencies>
+  <providesextension>svn</providesextension>
+  <extsrcrelease />
+</package>
