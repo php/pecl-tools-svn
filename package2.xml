@@ -62,19 +62,19 @@
   
   <contents>
     <dir name="/">
-      
+       <dir name="examples">
+        <file baseinstalldir="/" name="hook_copycommit.php" role="doc" />
+        <file baseinstalldir="/" name="hook_emailcommit.php" role="doc" />
+      </dir> 
       <file name="config.m4" role="src" />
       <file name="config.w32" role="src" />
       <file name="CREDITS" role="src" />
       <file name="EXPERIMENTAL" role="src" />
       <file name="php_svn.h" role="src" />
       <file name="svn.c" role="src" />
-      
-      <dir name="examples">
-        <file baseinstalldir="/" name="hook_copycommit.php" role="doc" />
-        <file baseinstalldir="/" name="hook_emailcommit.php" role="doc" />
-      </dir> 
+    
     </dir> 
+     
   </contents>
   
   
