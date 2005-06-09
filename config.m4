@@ -4,60 +4,58 @@ dnl vim:se ts=2 sw=2 et:
 
 PHP_ARG_WITH(svn, for svn support,
 
-[  --with-svn=[/path/to/svn-config]      Include svn support])
+[  --with-svn=[/path/to/svn-prefix]      Include svn support])
+
+PHP_ARG_WITH(svn-apr, for specifying the location of apr for svn,
+
+[  --with-svn-apr=[/path/to/apr-prefix]  Location of /include/*/apr.h])
 
 
 if test "$PHP_SVN" != "no"; then
-  AC_MSG_CHECKING([for svn-config])
-  if ! test -x $PHP_SVN ; then
-    for i in $PHP_SVN /usr/local/bin /usr/bin ; do
-      if test -x $i/svn-config ; then
-        PHP_SVN=$i/svn-config
-        break;
+  AC_MSG_CHECKING([for svn includes])
+  for i in $PHP_SVN /usr/local /usr /opt /sw; do
+    if test -r $i/include/subversion-1/svn_client.h ; then
+      PHP_SVN_INCLUDES="-I$i/include/subversion-1"
+      PHP_SVN_LDFLAGS="-L$i/lib"
+      if test -d $i/lib64 ; then
+        PHP_SVN_LDFLAGS="-L$i/lib64"
       fi
-    done
+      PHP_SVN_LDFLAGS="-lsvn_client-1 -lapr-0"
+      break;
+    fi
+  done
+  if test "$PHP_SVN_LDFLAGS" == ""; then
+     AC_MSG_ERROR([failed to find svn_client.h])
   fi
-  if test -x $PHP_SVN ; then
-    AC_MSG_RESULT($PHP_SVN)
-    PHP_SVN_INCLUDES=`$PHP_SVN --includes`
-    PHP_SVN_CFLAGS=`$PHP_SVN --cppflags --cflags`
-    PHP_SVN_LDFLAGS=`$PHP_SVN --ldflags --libs`
-  else
-    AC_MSG_RESULT([not found])
-    AC_MSG_WARN([
-Did not find svn-config; please ensure that you have installed
-the svn developer package or equivalent for you system.
-])
-    PHP_SVN_INCLUDES=""
-    for i in $PHP_SVN /usr/local /usr ; do
-      if test -r $i/include/subversion-1/svn_client.h ; then
-        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/subversion-1"
-        PHP_SVN_LDFLAGS="-L$i/lib"
-        if test -d $i/lib64 ; then
-          PHP_SVN_LDFLAGS="-L$i/lib64 $PHP_SVN_LDFLAGS"
-        fi
-        PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -lsvn_client-1 -lapr-0"
-      fi
-      if test -r $i/include/apr-0/apr.h ; then
-        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apr-0"
-      elif test -r $i/include/apache2/apr.h ; then
-        PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apache2"
-      fi
-    done
+  
+  
+  for i in $PHP_SVN_APR $PHP_SVN /usr/local /usr /opt /sw; do 
+    if test -r $i/include/apr-0/apr.h ; then
+      PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apr-0"
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -L$i/lib"
+      PHP_SVN_APR_FOUND="yes"
+      break;
+    elif test -r $i/include/apache2/apr.h ; then
+      PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apache2"
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -L$i/lib"
+      PHP_SVN_APR_FOUND="yes"
+      break;
+    fi
+  done
+  if test "$PHP_SVN_APR_FOUND" == ""; then
+     AC_MSG_ERROR([failed to find apr.h])
   fi
 
-  PHP_CHECK_LIBRARY(svn_client-1,svn_client_create_context,
-  [
-    PHP_ADD_LIBRARY(svn_client-1, 1, SVN_SHARED_LIBADD)
-    AC_DEFINE(HAVE_SVNLIB,1,[ ])
-  ],[
-    AC_MSG_ERROR([wrong svn lib version or lib not found])
-  ],[
-    $PHP_SVN_LDFLAGS
-  ])
+  AC_MSG_RESULT($PHP_SVN_INCLUDES)
+  AC_MSG_CHECKING([for svn libraries])
+  AC_MSG_RESULT($PHP_SVN_LDFLAGS)
+
+  AC_DEFINE(HAVE_SVNLIB,1,[ ])
+  
+  INCLUDES="$INCLUDES $PHP_SVN_INCLUDES"
   
   PHP_EVAL_LIBLINE($PHP_SVN_LDFLAGS, SVN_SHARED_LIBADD)
   PHP_SUBST(SVN_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(svn, svn.c, $ext_shared,,$PHP_SVN_INCLUDES $PHP_SVN_CFLAGS)
+  PHP_NEW_EXTENSION(svn, svn.c, $ext_shared,,$PHP_SVN_INCLUDES)
 fi
