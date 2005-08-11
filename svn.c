@@ -226,6 +226,7 @@ static void init_svn_client(TSRMLS_D)
 	svn_boolean_t store_password_val = TRUE;
 	svn_auth_provider_object_t *provider;
 	svn_auth_baton_t *ab;
+	apr_array_header_t *providers;
 
 	if (SVN_G(pool)) return;
 
@@ -244,8 +245,8 @@ static void init_svn_client(TSRMLS_D)
 	SVN_G(ctx)->log_msg_func = php_svn_get_commit_log;
 	
 	/* The whole list of registered providers */
-	apr_array_header_t *providers
-		= apr_array_make (SVN_G(pool), 10, sizeof (svn_auth_provider_object_t *));
+	
+	providers = apr_array_make (SVN_G(pool), 10, sizeof (svn_auth_provider_object_t *));
 
 	/* The main disk-caching auth providers, for both
 	   'username/password' creds and 'username' creds.  */
