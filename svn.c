@@ -680,11 +680,12 @@ php_svn_log_message_receiver (	void *baton,
 		svn_sort__item_t *item;
 		svn_log_changed_path_t *log_item;
 		zval *zpaths;
+		const char *path;
 
 		MAKE_STD_ZVAL(zpaths);
 		array_init(zpaths);
 		item = &(APR_ARRAY_IDX (sorted_paths, i, svn_sort__item_t));
-		const char *path = item->key;
+		path = item->key;
 		log_item = apr_hash_get (changed_paths, item->key, item->klen);
 
 		add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
