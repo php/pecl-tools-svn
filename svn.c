@@ -14,6 +14,7 @@
   +----------------------------------------------------------------------+
   | Authors: Alan Knowles <alan@akbkhome.com>                            |
   |          Wez Furlong <wez@omniti.com>                                |
+  |          Luca Furini <lfurini@cs.unibo.it>                           |
   +----------------------------------------------------------------------+
 */
 
@@ -61,10 +62,27 @@ struct php_svn_fs_root {
 	svn_fs_root_t *root;
 };
 
+struct php_svn_repos_fs_txn {
+	struct php_svn_repos *repos;
+	svn_fs_txn_t *txn;
+};
+
+struct php_svn_stream {
+    long rsrc_id;
+	svn_stream_t *stream;
+};
+
+struct php_svn_stringbuffer {
+    long rsrc_id;
+	svn_stringbuf_t *buffer;
+};
+
 static int le_svn_repos;
 static int le_svn_fs;
 static int le_svn_fs_root;
-
+static int le_svn_repos_fs_txn;
+static int le_svn_stream;
+static int le_svn_stringbuffer;
 
 static ZEND_RSRC_DTOR_FUNC(php_svn_repos_dtor)
 {
@@ -87,6 +105,21 @@ static ZEND_RSRC_DTOR_FUNC(php_svn_fs_root_dtor)
 	efree(r);
 }
 
+static ZEND_RSRC_DTOR_FUNC(php_svn_repos_fs_txn_dtor)
+{
+	struct php_svn_repos_fs_txn *r = rsrc->ptr;
+	zend_list_delete(r->repos->rsrc_id);
+	efree(r);
+}
+
+
+static ZEND_RSRC_DTOR_FUNC(php_svn_stream_dtor)
+{
+}
+
+static ZEND_RSRC_DTOR_FUNC(php_svn_stringbuffer_dtor)
+{
+}
 
 /* {{{ svn_functions[] */
 function_entry svn_functions[] = {
@@ -103,20 +136,45 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_add, NULL)
 	PHP_FE(svn_status, NULL)
 	PHP_FE(svn_update, NULL)
+	PHP_FE(svn_import, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
 	PHP_FE(svn_repos_open, NULL)
 	PHP_FE(svn_repos_fs, NULL)
+	PHP_FE(svn_repos_fs_begin_txn_for_commit, NULL)
+	PHP_FE(svn_repos_fs_begin_txn_for_update, NULL)
+	PHP_FE(svn_repos_fs_commit_txn, NULL)
 	PHP_FE(svn_fs_revision_root, NULL)
 	PHP_FE(svn_fs_check_path, NULL)
 	PHP_FE(svn_fs_revision_prop, NULL)
 	PHP_FE(svn_fs_dir_entries, NULL)
 	PHP_FE(svn_fs_node_created_rev, NULL)
-	PHP_FE(svn_fs_node_prop, NULL)
+/*        PHP_FE(svn_fs_node_prop, NULL) */
 	PHP_FE(svn_fs_youngest_rev, NULL)
 	PHP_FE(svn_fs_file_contents, NULL)
 	PHP_FE(svn_fs_file_length, NULL)
+	PHP_FE(svn_fs_txn_root, NULL)
+	PHP_FE(svn_fs_make_file, NULL)
+	PHP_FE(svn_fs_make_dir, NULL)
+	PHP_FE(svn_fs_apply_text, NULL)
+	PHP_FE(svn_fs_copy, NULL)
+	PHP_FE(svn_fs_delete, NULL)
+	PHP_FE(svn_fs_begin_txn2, NULL)
+	PHP_FE(svn_fs_is_dir, NULL)
+	PHP_FE(svn_fs_is_file, NULL)
+	PHP_FE(svn_fs_node_prop, NULL)
+	PHP_FE(svn_fs_change_node_prop, NULL)
+	PHP_FE(svn_fs_contents_changed, NULL)
+	PHP_FE(svn_fs_props_changed, NULL)
+	PHP_FE(svn_fs_abort_txn, NULL)
+	
+	PHP_FE(svn_stringbuf_from_file, NULL)
+	PHP_FE(svn_stream_from_stringbuf, NULL)
+	PHP_FE(svn_stream_copy, NULL)
+	PHP_FE(svn_stream_read, NULL)
+	PHP_FE(svn_stream_close, NULL)
+
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -139,6 +197,7 @@ zend_module_entry svn_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
+
 
 #ifdef COMPILE_DL_SVN
 ZEND_GET_MODULE(svn)
@@ -310,6 +369,43 @@ PHP_FUNCTION(svn_auth_set_parameter)
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
 }
 
+PHP_FUNCTION(svn_import)
+{
+	svn_client_commit_info_t *commit_info_p = NULL;
+	char *path;
+	int pathlen;
+	char *url;
+	int urllen;
+	svn_boolean_t nonrecursive;
+	svn_error_t *err;
+	apr_pool_t *subpool;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssb", 
+				&path, &pathlen, &url, &urllen, &nonrecursive)) {
+		RETURN_FALSE;
+	}
+
+	init_svn_client(TSRMLS_C);
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	
+	err = svn_client_import(&commit_info_p, path, url, nonrecursive, 
+			SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error (err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+
+}
+
 /* {{{ PHP_MINIT_FUNCTION */
 PHP_MINIT_FUNCTION(svn)
 {
@@ -370,7 +466,15 @@ PHP_MINIT_FUNCTION(svn)
 	le_svn_fs_root = zend_register_list_destructors_ex(php_svn_fs_root_dtor,
 			NULL, "svn-fs-root", module_number);
 		
- 
+	le_svn_repos_fs_txn = zend_register_list_destructors_ex(php_svn_repos_fs_txn_dtor,
+			NULL, "svn-repos-fs-txn", module_number);
+
+	le_svn_stream = zend_register_list_destructors_ex(php_svn_stream_dtor,
+			NULL, "svn-fs-stream", module_number);
+		
+	le_svn_stringbuffer = zend_register_list_destructors_ex(php_svn_stringbuffer_dtor,
+			NULL, "svn-fs-stringbuffer", module_number);
+	
 	return SUCCESS;
 }
 /* }}} */
@@ -1161,10 +1265,17 @@ PHP_FUNCTION(svn_fs_file_contents)
 		php_svn_handle_error(err TSRMLS_CC);
 		RETURN_FALSE;
 	} else {
+		/*
+		We have switch from php streams to svn_streams here?!!
 		php_stream *stm;
-
 		stm = php_stream_alloc(&php_svn_stream_ops, svnstm, 0, "r");
 		php_stream_to_zval(stm, return_value);
+		*/
+		struct php_svn_stream *stream;
+		stream = emalloc(sizeof(*stream));
+		stream->stream = svnstm;
+		
+		ZEND_REGISTER_RESOURCE(return_value, stream, le_svn_stream);
 	}
 }
 /* }}} */
@@ -1237,7 +1348,11 @@ PHP_FUNCTION(svn_fs_node_prop)
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
 	} else {
-		RETVAL_STRINGL((char*)val->data, val->len, 1);
+		if (val != NULL && val->data != NULL) {
+			RETVAL_STRINGL((char *)val->data, val->len, 1);
+		} else {
+			RETVAL_EMPTY_STRING();
+		}
 	}
 	svn_pool_destroy(subpool);
 }
@@ -1816,6 +1931,679 @@ PHP_FUNCTION(svn_client_version)
 	php_svn_get_version(vers, sizeof(vers));
 	RETURN_STRING(vers, 1);
 }
+
+/* {{{ proto resource svn_repos_fs_begin_txn_for_commit(resource repos, long rev, string author, string log_msg)
+   create a new transaction */
+PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
+{
+	svn_fs_txn_t *txn_p = NULL;
+	struct php_svn_repos_fs_txn *new_txn = NULL;
+	zval *zrepos;
+	struct php_svn_repos *repos = NULL;
+	svn_revnum_t rev;
+	char *author;
+	int author_len;
+	char *log_msg;
+	int log_msg_len;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rlss",
+				&zrepos, &rev, &author, &author_len, &log_msg, &log_msg_len)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(repos, struct php_svn_repos *, &zrepos, -1, "svn-repos", le_svn_repos);
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	err = svn_repos_fs_begin_txn_for_commit(&txn_p, repos->repos, rev, author, log_msg, subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+
+	if (txn_p) {
+		new_txn = emalloc(sizeof(*new_txn));
+		new_txn->repos = repos;
+		zend_list_addref(repos->rsrc_id);
+		new_txn->txn = txn_p;
+		
+		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
+	} else {
+		// something went wrong
+	}
+}
+/* }}} */
+
+PHP_FUNCTION(svn_repos_fs_begin_txn_for_update)
+{
+}
+
+/* {{{ proto long svn_repos_fs_commit_txn(resource txn)
+   commits a transaction and returns the new revision */
+PHP_FUNCTION(svn_repos_fs_commit_txn)
+{
+	zval *ztxn;
+	struct php_svn_repos_fs_txn *txn;
+	char *conflicts;
+	svn_revnum_t new_rev;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+				&ztxn)) {
+		RETURN_FALSE;
+	}
+
+	ZEND_FETCH_RESOURCE(txn, struct php_svn_repos_fs_txn *, &ztxn, -1, "svn-repos-fs-txn", le_svn_repos_fs_txn);
+
+	err = svn_repos_fs_commit_txn(&conflicts, txn->repos->repos, &new_rev, txn->txn, txn->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
+	RETURN_LONG(new_rev);
+}
+/* }}} */
+
+/* {{{ proto resource svn_fs_txn_root(resource txn) 
+   creates and returns a transaction root */
+PHP_FUNCTION(svn_fs_txn_root)
+{
+	svn_fs_root_t *root_p = NULL;
+	struct php_svn_fs_root *new_root = NULL;
+	zval *ztxn;
+	struct php_svn_repos_fs_txn *txn = NULL;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+				&ztxn)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(txn, struct php_svn_repos_fs_txn *, &ztxn, -1, "svn-fs-repos-txn", le_svn_repos_fs_txn);
+
+	err = svn_fs_txn_root(&root_p, txn->txn, txn->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+
+	if (root_p) {
+		new_root = emalloc(sizeof(*new_root));
+		new_root->repos = txn->repos;
+		zend_list_addref(txn->repos->rsrc_id);
+		new_root->root = root_p;
+
+		ZEND_REGISTER_RESOURCE(return_value, new_root, le_svn_fs_root);
+	} else {
+		// something went wrong
+	}
+}
+/* }}} */
+
+
+/* {{{ proto boolean svn_fs_make_file(resource root, string path) 
+   creates a new empty file, returns true if all is ok, false otherwise */
+PHP_FUNCTION(svn_fs_make_file)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_make_file(root->root, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	} 
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_make_dir(resource root, string path) 
+   creates a new empty directory, returns true if all is ok, false otherwise*/
+PHP_FUNCTION(svn_fs_make_dir)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_make_dir(root->root, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+    } else {
+		RETURN_TRUE;
+	}
+}
+/* }}} */
+
+
+/* {{{ proto resource svn_fs_apply_text(resource root, string path) 
+   creates and returns a stream that will be used to replace
+   the content of an existing file*/
+PHP_FUNCTION(svn_fs_apply_text)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+	svn_stream_t *stream_p = NULL;
+	struct php_svn_stream *stream = NULL;
+	
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_apply_text(&stream_p, root->root, path, NULL, root->repos->pool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
+	if (stream_p) {
+		stream = emalloc(sizeof(*stream));
+		stream->stream = stream_p;
+		
+		ZEND_REGISTER_RESOURCE(return_value, stream, le_svn_stream);
+	} else {
+		// something went wrong
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_copy(resource from_root, string from_path, resourse to_root, string to_path) 
+   copies a file or a directory, returns true if all is ok, false otherwise */
+PHP_FUNCTION(svn_fs_copy)
+{
+	zval *zfrom_root, *zto_root;
+	struct php_svn_fs_root *from_root, *to_root;
+	char *from_path, *to_path;
+	int from_path_len, to_path_len;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
+				&zfrom_root, &from_path, &from_path_len, 
+				&zto_root, &to_path, &to_path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(from_root, struct php_svn_fs_root *, &zfrom_root, -1, "svn-fs-root", le_svn_fs_root);
+	ZEND_FETCH_RESOURCE(to_root, struct php_svn_fs_root *, &zto_root, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_copy(from_root->root, from_path, to_root->root, to_path, to_root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_delete(resource root, string path) 
+   deletes a file or a directory, return true if all is ok, false otherwise */
+PHP_FUNCTION(svn_fs_delete)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_delete(root->root, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	}
+}
+/* }}} */
+
+/* {{{ proto resource svn_fs_begin_txn2(resource repos, long rev)
+   create a new transaction */
+PHP_FUNCTION(svn_fs_begin_txn2)
+{
+	svn_fs_txn_t *txn_p = NULL;
+	struct php_svn_repos_fs_txn *new_txn = NULL;
+	zval *zfs;
+	struct php_svn_fs *fs = NULL;
+	svn_revnum_t rev;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+				&zfs, &rev)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(fs, struct php_svn_fs *, &zfs, -1, "svn-fs", le_svn_fs);
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	err = svn_fs_begin_txn2(&txn_p, fs->fs, rev, 0, subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+
+	if (txn_p) {
+		new_txn = emalloc(sizeof(*new_txn));
+		new_txn->repos = fs->repos;
+		zend_list_addref(fs->repos->rsrc_id);
+		new_txn->txn = txn_p;
+		
+		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
+	} else {
+		// something went wrong
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_is_file(resource root, string path) 
+   return true if the path points to a file, false otherwise */
+PHP_FUNCTION(svn_fs_is_file)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+	int is_file;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_is_file(&is_file, root->root, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_BOOL(is_file);
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_is_dir(resource root, string path) 
+   return true if the path points to a directory, false otherwise */
+PHP_FUNCTION(svn_fs_is_dir)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+	int is_dir;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_is_dir(&is_dir, root->root, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_BOOL(is_dir);
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_change_node_prop(resource root, string path, string name, string value) 
+   return true if everything is ok, false otherwise */
+PHP_FUNCTION(svn_fs_change_node_prop)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	char *name;
+	int name_len;
+	char *value;
+	int value_len;
+	svn_string_t *svn_value;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsss",
+				&zroot, &path, &path_len, &name, &name_len, 
+				&value, &value_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	svn_value = emalloc(sizeof(*svn_value));
+	svn_value->data = value;
+	svn_value->len = value_len;
+	
+	err = svn_fs_change_node_prop(root->root, path, name, svn_value,
+			root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_contents_changed(resource root1, string path1, resource root2, string path2) 
+   return true if content is different, false otherwise */
+PHP_FUNCTION(svn_fs_contents_changed)
+{
+	zval *zroot1;
+	struct php_svn_fs_root *root1 = NULL;
+	zval *zroot2;
+	struct php_svn_fs_root *root2 = NULL;
+	char *path1;
+	int path1_len;
+	char *path2;
+	int path2_len;
+	svn_boolean_t changed;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
+				&zroot1, &path1, &path1_len, 
+				&zroot2, &path2, &path2_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root1, struct php_svn_fs_root *, &zroot1, -1, "svn-fs-root", le_svn_fs_root);
+	ZEND_FETCH_RESOURCE(root2, struct php_svn_fs_root *, &zroot2, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_contents_changed(&changed, root1->root, path1,
+			root2->root, path2,	root1->repos->pool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		if (changed == 1) {
+			RETURN_TRUE;
+		} else {
+			RETURN_FALSE;
+		}
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_props_changed(resource root1, string path1, resource root2, string path2) 
+   return true if props are different, false otherwise */
+PHP_FUNCTION(svn_fs_props_changed)
+{
+	zval *zroot1;
+	struct php_svn_fs_root *root1 = NULL;
+	zval *zroot2;
+	struct php_svn_fs_root *root2 = NULL;
+	char *path1;
+	int path1_len;
+	char *path2;
+	int path2_len;
+	svn_boolean_t changed;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
+				&zroot1, &path1, &path1_len, 
+				&zroot2, &path2, &path2_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root1, struct php_svn_fs_root *, &zroot1, -1, "svn-fs-root", le_svn_fs_root);
+	ZEND_FETCH_RESOURCE(root2, struct php_svn_fs_root *, &zroot2, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_fs_props_changed(&changed, root1->root, path1,
+			root2->root, path2,	root1->repos->pool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		if (changed == 1) {
+			RETURN_TRUE;
+		} else {
+			RETURN_FALSE;
+		}
+	}
+}
+/* }}} */
+
+/* {{{ proto boolean svn_fs_abort_txn(resource txn)
+   abort a transaction, returns true if everything is ok, false othewise */
+PHP_FUNCTION(svn_fs_abort_txn)
+{
+	zval *ztxn;
+	struct php_svn_repos_fs_txn *txn;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+				&ztxn)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(txn, struct php_svn_repos_fs_txn *, &ztxn, -1, "svn-repos-fs-txn", le_svn_repos_fs_txn);
+
+	err = svn_fs_abort_txn(txn->txn, txn->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	}
+}
+/* }}} */
+
+/* {{{ proto resource svn_stringbuf_from_file(resource root, string path)
+   creates and returns a stringbuffer from a file */
+PHP_FUNCTION(svn_stringbuf_from_file)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	char *path;
+	int path_len;
+	svn_error_t *err;
+	svn_stringbuf_t *buffer_p = NULL;
+	struct php_svn_stringbuffer *buffer = NULL;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zroot, &path, &path_len)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+
+	err = svn_stringbuf_from_file(&buffer_p, path, root->repos->pool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	}
+	
+	if (buffer_p) {
+		buffer = emalloc(sizeof(*buffer));
+		buffer->buffer = buffer_p;
+		
+		ZEND_REGISTER_RESOURCE(return_value, buffer, le_svn_stringbuffer);
+	} else {
+		// something went wrong
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto resource svn_stream_from_stringbuf(resource root, resource stringbuffer)
+   creates and returns a stream from a stringbuffer*/
+PHP_FUNCTION(svn_stream_from_stringbuf)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	zval *zbuffer;
+	struct php_svn_stringbuffer *buffer = NULL;
+	svn_error_t *err;
+	svn_stream_t *stream_p = NULL;
+	struct php_svn_stream *stream = NULL;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rr",
+				&zroot, &zbuffer)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+	ZEND_FETCH_RESOURCE(buffer, struct php_svn_stringbuffer *, &zbuffer, -1, "svn-stringbuffer", le_svn_stringbuffer);
+	
+	stream_p = svn_stream_from_stringbuf(buffer->buffer, root->repos->pool);
+
+	if (stream_p) {
+		stream = emalloc(sizeof(*stream));
+		stream->stream = stream_p;
+		
+		ZEND_REGISTER_RESOURCE(return_value, stream, le_svn_stream);
+	} else {
+		// something went wrong
+		RETURN_FALSE;
+	}
+
+}
+/* }}} */
+
+/* {{{ proto boolean svn_stream_copy(resource root, resource from_stream, resource to_stream)
+   copies a stream into another one, return true if all is ok, false otherwise*/
+PHP_FUNCTION(svn_stream_copy)
+{
+	zval *zroot;
+	struct php_svn_fs_root *root = NULL;
+	zval *zfrom_stream;
+	struct php_svn_stream *from_stream = NULL;
+	zval *zto_stream;
+	struct php_svn_stream *to_stream = NULL;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rrr",
+				&zroot, &zfrom_stream, &zto_stream)) {
+		RETURN_FALSE;
+	}
+	
+	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
+	ZEND_FETCH_RESOURCE(from_stream, struct php_svn_stream *, &zfrom_stream, -1, "svn-stream", le_svn_stream);
+	ZEND_FETCH_RESOURCE(to_stream, struct php_svn_stream *, &zto_stream, -1, "svn-stream", le_svn_stream);
+
+	err = svn_stream_copy(from_stream->stream, to_stream->stream, root->repos->pool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	} 
+}
+/* }}} */
+
+/* {{{ proto string svn_stream_read(resource stream, long size)
+   reads size bytes from a stream, returning a string*/
+PHP_FUNCTION(svn_stream_read)
+{
+	zval *zstream;
+	struct php_svn_stream *stream = NULL;
+	svn_stringbuf_t *buf = NULL;
+	char *buffer = NULL;
+	apr_size_t size;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+				&zstream, &size)) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(stream, struct php_svn_stream *, &zstream, -1, "svn-stream", le_svn_stream);
+
+	buffer = emalloc(sizeof(*buffer) * size);
+	err = svn_stream_read(stream->stream, buffer, &size);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+
+	RETURN_STRING(buffer, size);
+}
+/* }}} */
+
+/* {{{ proto void svn_stream_close(resource stream)
+   closes a stream*/
+PHP_FUNCTION(svn_stream_close)
+{
+	zval *zstream;
+	struct php_svn_stream *stream = NULL;
+	svn_error_t *err;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+				&zstream)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(stream, struct php_svn_stream *, &zstream, -1, "svn-stream", le_svn_stream);
+
+	err = svn_stream_close(stream->stream);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+	}
+}
+/* }}} */
 
 /*
  * Local variables:
