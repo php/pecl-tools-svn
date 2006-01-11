@@ -63,12 +63,13 @@ PHP_FUNCTION(svn_repos_recover);
 PHP_FUNCTION(svn_repos_hotcopy);
 PHP_FUNCTION(svn_repos_open);
 PHP_FUNCTION(svn_repos_fs);
+PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit);
+PHP_FUNCTION(svn_repos_fs_commit_txn);
 PHP_FUNCTION(svn_fs_revision_root);
 PHP_FUNCTION(svn_fs_check_path);
 PHP_FUNCTION(svn_fs_revision_prop);
 PHP_FUNCTION(svn_fs_dir_entries);
 PHP_FUNCTION(svn_fs_node_created_rev);
-/* PHP_FUNCTION(svn_fs_node_prop); */
 PHP_FUNCTION(svn_fs_youngest_rev);
 PHP_FUNCTION(svn_fs_file_contents);
 PHP_FUNCTION(svn_fs_file_length);
@@ -86,12 +87,6 @@ PHP_FUNCTION(svn_fs_change_node_prop);
 PHP_FUNCTION(svn_fs_contents_changed);
 PHP_FUNCTION(svn_fs_props_changed);
 PHP_FUNCTION(svn_fs_abort_txn);
-
-PHP_FUNCTION(svn_stringbuf_from_file);
-PHP_FUNCTION(svn_stream_from_stringbuf);
-PHP_FUNCTION(svn_stream_copy);
-PHP_FUNCTION(svn_stream_read);
-PHP_FUNCTION(svn_stream_close);
 
 /* TODO: */
 
