@@ -36,6 +36,7 @@
 #include "svn_path.h"
 #include "svn_fs.h"
 #include "svn_repos.h"
+#include "svn_utf.h"
 
 /* If you declare any globals in php_svn.h uncomment this: */
 ZEND_DECLARE_MODULE_GLOBALS(svn)
@@ -778,7 +779,7 @@ php_svn_log_message_receiver (	void *baton,
  
 PHP_FUNCTION(svn_log)
 {
-	char *repos_url = NULL, *utf8_repos_url = NULL; 
+	const char *repos_url = NULL, *utf8_repos_url = NULL; 
 	int repos_url_len;
 	int revision = -2;
 	svn_error_t *err;
@@ -1942,7 +1943,7 @@ PHP_FUNCTION(svn_repos_fs_commit_txn)
 {
 	zval *ztxn;
 	struct php_svn_repos_fs_txn *txn;
-	char *conflicts;
+	const char *conflicts;
 	svn_revnum_t new_rev;
 	svn_error_t *err;
 
