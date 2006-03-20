@@ -38,11 +38,11 @@
   <!-- package2.xml design is borked - it has no defined release section..... -->
   
   <!-- RELEASE SECTION -->
-    <date>2005-05-28</date>
-    <time>13:04:29</time>
+    <date>2006-03-20</date>
+    <!-- <time>13:04:29</time> do we need this? -->
     <version>
-      <release>0.1</release>
-      <api>0.1</api>
+      <release>0.2</release>
+      <api>0.2</api>
     </version>
     
     
@@ -55,7 +55,19 @@
      <license uri="http://www.php.net/licence">PHP Licence</license>
     
     <notes>
-      - First working release (works ok here!)
+      
+      - Compiles on Win32 + Netware (Thanks to Guenter Knauf)
+      - dependancy on svn-config removed (as recommended by Subversion developers)
+      - Pretty complete implementation.
+      
+      Bugs 
+          #6893 - correct types for strict compilers
+
+
+      Known issues:
+          There are bug reports about commit / checkout functionality. Any help 
+          reproducing and fixing these is welcome.
+      
     </notes>
   <!-- /RELEASE SECTION -->
    
@@ -90,6 +102,26 @@
       </pearinstaller>
     </required>
   </dependencies>
+ 
   <providesextension>svn</providesextension>
   <extsrcrelease />
+    
+  <changelog>
+    <release>
+        <version>
+            <release>0.1</release>
+            <api>0.1</api>
+        </version>
+        <stability>
+            <release>beta</release>
+            <api>beta</api>
+        </stability>
+        <date>2005-05-28</date>
+        <license uri="http://www.php.net/licence">PHP Licence</license>
+         <notes>
+          - First working release (works ok here!)
+        </notes>
+    </release>
+  </changelog>        
+  
 </package>
