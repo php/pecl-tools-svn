@@ -20,6 +20,8 @@
 
 /* $Id$ */
 
+#define SVN_EXTENSION_VERSION "0.2.0"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -164,7 +166,7 @@ zend_module_entry svn_module_entry = {
 	PHP_RSHUTDOWN(svn),
 	PHP_MINFO(svn),
 #if ZEND_MODULE_API_NO >= 20010901
-	"0.1", /* Replace with version number for your extension */
+	SVN_EXTENSION_VERSION, 
 #endif
 	STANDARD_MODULE_PROPERTIES
 };
@@ -467,6 +469,7 @@ PHP_MINFO_FUNCTION(svn)
 	php_svn_get_version(vstr, sizeof(vstr));
 	
 	php_info_print_table_row(2, "svn client version", vstr);
+	php_info_print_table_row(2, "svn extension version", SVN_EXTENSION_VERSION);
 	php_info_print_table_end();
 
 	/* Remove comments if you have entries in php.ini
