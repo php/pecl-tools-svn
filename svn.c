@@ -312,6 +312,8 @@ static void init_svn_client(TSRMLS_D)
 	SVN_G(ctx)->auth_baton = ab;
 }
 
+/* {{{ proto string svn_auth_get_parameter(string key)
+   Retrieves authentication parameter at key */
 PHP_FUNCTION(svn_auth_get_parameter)
 {
 	char *key;
@@ -329,6 +331,10 @@ PHP_FUNCTION(svn_auth_get_parameter)
 		RETURN_STRING((char*)value, 1);
 	}
 }
+/* }}} */
+ 
+/* {{{ proto void svn_auth_set_parameter(string key, string value)
+   Sets authentication parameter at key to value */
 
 PHP_FUNCTION(svn_auth_set_parameter)
 {
@@ -342,6 +348,10 @@ PHP_FUNCTION(svn_auth_set_parameter)
 
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
 }
+/* }}} */
+ 
+/* {{{ proto bool svn_import(string path, string url, bool nonrecursive)
+   Imports unversioned path into repository at url */
 
 PHP_FUNCTION(svn_import)
 {
@@ -379,6 +389,7 @@ PHP_FUNCTION(svn_import)
 	svn_pool_destroy(subpool);
 
 }
+/* }}} */
 
 /* {{{ PHP_MINIT_FUNCTION */
 PHP_MINIT_FUNCTION(svn)
@@ -529,7 +540,8 @@ PHP_FUNCTION(svn_checkout)
 }
 /* }}} */
 
-
+/* {{{ proto string svn_cat(string repos_url[, int revision_no])
+   Returns the contents of repos_url, optionally at revision_no */
 PHP_FUNCTION(svn_cat)
 {
 	char *repos_url = NULL;
@@ -598,7 +610,11 @@ cleanup:
 	if (retdata) efree(retdata);
 }
 
-
+/* }}} */
+ 
+ 
+/* {{{ proto array svn_ls(string repos_url[, int revision_no])
+   Returns list of directory contents in repos_url, optionally at revision_no */
 PHP_FUNCTION(svn_ls)
 {
 	char *repos_url = NULL;
@@ -702,7 +718,7 @@ cleanup:
 	svn_pool_destroy(subpool);
 	
 }
-
+/* }}} */
 static svn_error_t *
 php_svn_log_message_receiver (	void *baton,
 				apr_hash_t *changed_paths,
@@ -779,7 +795,9 @@ php_svn_log_message_receiver (	void *baton,
 	add_next_index_zval(return_value, row); 
 	return SVN_NO_ERROR;
 }
- 
+
+/* {{{ proto array svn_log(string repos_url[, int revision_no])
+   Returns the commit log messages of repos_url, optionally at revision_no */
 PHP_FUNCTION(svn_log)
 {
 	const char *repos_url = NULL, *utf8_repos_url = NULL; 
@@ -844,6 +862,7 @@ PHP_FUNCTION(svn_log)
 
 	svn_pool_destroy(subpool);
 }
+/* }}} */
 
 static size_t php_apr_file_write(php_stream *stream, const char *buf, size_t count TSRMLS_DC)
 {
@@ -1881,6 +1900,8 @@ static void php_svn_get_version(char *buf, int buflen)
 		snprintf(buf, buflen, "%d.%d.%d", vers->major, vers->minor, vers->patch);
 }
 
+/* {{{ proto string svn_client_version()
+   Returns the version of the SVN client libraries */
 PHP_FUNCTION(svn_client_version)
 {
 	char vers[128];
@@ -1892,6 +1913,7 @@ PHP_FUNCTION(svn_client_version)
 	php_svn_get_version(vers, sizeof(vers));
 	RETURN_STRING(vers, 1);
 }
+/* }}} */
 
 /* {{{ proto resource svn_repos_fs_begin_txn_for_commit(resource repos, long rev, string author, string log_msg)
    create a new transaction */
