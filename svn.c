@@ -1646,7 +1646,7 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
 }
 
 /* {{{ proto array svn_commit(string log, array targets [, bool dontrecurse])
-   Make a hot-copy of the repos at repospath; copy it to destpath */
+   Sends changes from the local working copy to the repository */
 PHP_FUNCTION(svn_commit)
 {
 	char *log;
@@ -1728,7 +1728,7 @@ PHP_FUNCTION(svn_add)
 /* }}} */
 
 /* {{{ proto array svn_status(string path [, bool recursive [, bool get_all [, bool update [, bool no_ignore]]]])
-   Schedule the addition of a file in a working directory */
+   Returns the status of working copy files and directories */
 
 static void status_func(void *baton, const char *path, svn_wc_status_t *status)
 {
