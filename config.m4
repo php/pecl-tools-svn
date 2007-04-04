@@ -20,7 +20,7 @@ if test "$PHP_SVN" != "no"; then
       if test -d $i/lib64 ; then
         PHP_SVN_LDFLAGS="-L$i/lib64"
       fi
-      PHP_SVN_LDFLAGS="-lsvn_client-1 -lapr-0"
+      PHP_SVN_LDFLAGS="-lsvn_client-1"
       break;
     fi
   done
@@ -30,14 +30,22 @@ if test "$PHP_SVN" != "no"; then
   
   
   for i in $PHP_SVN_APR $PHP_SVN /usr/local /usr /opt /sw; do 
-    if test -r $i/include/apr-0/apr.h ; then
+    if test -r $i/include/apr-1.0/apr.h ; then
+      PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apr-1.0 -D_LARGEFILE64_SOURCE "
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -L$i/lib"
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -lapr-1"
+      PHP_SVN_APR_FOUND="yes"
+      break;
+    elif test -r $i/include/apr-0/apr.h ; then
       PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apr-0"
       PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -L$i/lib"
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -lapr-0"
       PHP_SVN_APR_FOUND="yes"
       break;
     elif test -r $i/include/apache2/apr.h ; then
       PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES -I$i/include/apache2"
       PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -L$i/lib"
+      PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS -lapr-0"
       PHP_SVN_APR_FOUND="yes"
       break;
     fi
