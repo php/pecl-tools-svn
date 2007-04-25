@@ -924,7 +924,7 @@ static php_stream_ops php_apr_stream_ops = {
 	NULL /* set_option */
 };
 
-/* {{{ proto mixed svn_diff(string path1, int rev1, string path2, int rev2)
+/* {{{ proto array svn_diff(string path1, int rev1, string path2, int rev2)
    Recursively diffs two paths.  Returns an array consisting of two streams: the first is the diff output and the second contains error stream output */
 PHP_FUNCTION(svn_diff)
 {
@@ -1116,7 +1116,7 @@ PHP_FUNCTION(svn_fs_revision_prop)
 }
 /* }}} */
 
-/* {{{ proto resource svn_fs_youngest_rev(resource fs)
+/* {{{ proto int svn_fs_youngest_rev(resource fs)
    Returns the number of the youngest revision in the filesystem */
 PHP_FUNCTION(svn_fs_youngest_rev)
 {
@@ -1297,7 +1297,7 @@ PHP_FUNCTION(svn_fs_file_length)
 }
 /* }}} */
 
-/* {{{ proto long svn_fs_node_prop(resource fsroot, string path, string propname)
+/* {{{ proto int svn_fs_node_prop(resource fsroot, string path, string propname)
    Returns the value of a property for a node */
 PHP_FUNCTION(svn_fs_node_prop)
 {
@@ -1339,7 +1339,7 @@ PHP_FUNCTION(svn_fs_node_prop)
 /* }}} */
 
 
-/* {{{ proto long svn_fs_node_created_rev(resource fsroot, string path)
+/* {{{ proto int svn_fs_node_created_rev(resource fsroot, string path)
    Returns the revision in which path under fsroot was created */
 PHP_FUNCTION(svn_fs_node_created_rev)
 {
@@ -1712,7 +1712,7 @@ PHP_FUNCTION(svn_commit)
 }
 /* }}} */
 
-/* {{{ proto array svn_add(string path [, bool recursive [, bool force]])
+/* {{{ proto bool svn_add(string path [, bool recursive [, bool force]])
    Schedule the addition of a file in a working directory */
 PHP_FUNCTION(svn_add)
 {
@@ -1844,7 +1844,7 @@ PHP_FUNCTION(svn_status)
 }
 /* }}} */
 
-/* {{{ proto array svn_update(string path [, int revno [, bool recurse]])
+/* {{{ proto int svn_update(string path [, int revno [, bool recurse]])
    Update working copy at path to revno */
 PHP_FUNCTION(svn_update)
 {
@@ -1962,7 +1962,7 @@ PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
 }
 /* }}} */
 
-/* {{{ proto long svn_repos_fs_commit_txn(resource txn)
+/* {{{ proto int svn_repos_fs_commit_txn(resource txn)
    commits a transaction and returns the new revision */
 PHP_FUNCTION(svn_repos_fs_commit_txn)
 {
@@ -2026,7 +2026,7 @@ PHP_FUNCTION(svn_fs_txn_root)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_make_file(resource root, string path) 
+/* {{{ proto bool svn_fs_make_file(resource root, string path) 
    creates a new empty file, returns true if all is ok, false otherwise */
 PHP_FUNCTION(svn_fs_make_file)
 {
@@ -2054,7 +2054,7 @@ PHP_FUNCTION(svn_fs_make_file)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_make_dir(resource root, string path) 
+/* {{{ proto bool svn_fs_make_dir(resource root, string path) 
    creates a new empty directory, returns true if all is ok, false otherwise*/
 PHP_FUNCTION(svn_fs_make_dir)
 {
@@ -2121,7 +2121,7 @@ PHP_FUNCTION(svn_fs_apply_text)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_copy(resource from_root, string from_path, resourse to_root, string to_path) 
+/* {{{ proto bool svn_fs_copy(resource from_root, string from_path, resourse to_root, string to_path) 
    copies a file or a directory, returns true if all is ok, false otherwise */
 PHP_FUNCTION(svn_fs_copy)
 {
@@ -2151,7 +2151,7 @@ PHP_FUNCTION(svn_fs_copy)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_delete(resource root, string path) 
+/* {{{ proto bool svn_fs_delete(resource root, string path) 
    deletes a file or a directory, return true if all is ok, false otherwise */
 PHP_FUNCTION(svn_fs_delete)
 {
@@ -2222,7 +2222,7 @@ PHP_FUNCTION(svn_fs_begin_txn2)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_is_file(resource root, string path) 
+/* {{{ proto bool svn_fs_is_file(resource root, string path) 
    return true if the path points to a file, false otherwise */
 PHP_FUNCTION(svn_fs_is_file)
 {
@@ -2251,7 +2251,7 @@ PHP_FUNCTION(svn_fs_is_file)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_is_dir(resource root, string path) 
+/* {{{ proto bool svn_fs_is_dir(resource root, string path) 
    return true if the path points to a directory, false otherwise */
 PHP_FUNCTION(svn_fs_is_dir)
 {
@@ -2280,7 +2280,7 @@ PHP_FUNCTION(svn_fs_is_dir)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_change_node_prop(resource root, string path, string name, string value) 
+/* {{{ proto bool svn_fs_change_node_prop(resource root, string path, string name, string value) 
    return true if everything is ok, false otherwise */
 PHP_FUNCTION(svn_fs_change_node_prop)
 {
@@ -2319,7 +2319,7 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_contents_changed(resource root1, string path1, resource root2, string path2) 
+/* {{{ proto bool svn_fs_contents_changed(resource root1, string path1, resource root2, string path2) 
    return true if content is different, false otherwise */
 PHP_FUNCTION(svn_fs_contents_changed)
 {
@@ -2359,7 +2359,7 @@ PHP_FUNCTION(svn_fs_contents_changed)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_props_changed(resource root1, string path1, resource root2, string path2) 
+/* {{{ proto bool svn_fs_props_changed(resource root1, string path1, resource root2, string path2) 
    return true if props are different, false otherwise */
 PHP_FUNCTION(svn_fs_props_changed)
 {
@@ -2399,7 +2399,7 @@ PHP_FUNCTION(svn_fs_props_changed)
 }
 /* }}} */
 
-/* {{{ proto boolean svn_fs_abort_txn(resource txn)
+/* {{{ proto bool svn_fs_abort_txn(resource txn)
    abort a transaction, returns true if everything is ok, false othewise */
 PHP_FUNCTION(svn_fs_abort_txn)
 {
