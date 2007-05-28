@@ -437,6 +437,12 @@ PHP_MINIT_FUNCTION(svn)
 	LONG_CONST(svn_node_file);
 	LONG_CONST(svn_node_dir);
 	LONG_CONST(svn_node_unknown);
+ 
+
+	LONG_CONST(svn_wc_schedule_normal);
+	LONG_CONST(svn_wc_schedule_add);
+	LONG_CONST(svn_wc_schedule_delete);
+	LONG_CONST(svn_wc_schedule_replace);
 	
 	/* this is probably temporary until we sort out a proper revision parser. */
 	REGISTER_LONG_CONSTANT("SVN_REVISON_HEAD", -1, CONST_CS|CONST_PERSISTENT);
