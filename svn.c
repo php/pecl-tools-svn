@@ -119,6 +119,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_status, NULL)
 	PHP_FE(svn_update, NULL)
 	PHP_FE(svn_import, NULL)
+	PHP_FE(svn_info, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -1525,6 +1526,86 @@ PHP_FUNCTION(svn_repos_open)
 		svn_pool_destroy(subpool);
 		RETURN_FALSE;
 	}
+}
+/* }}} */
+
+/* {{{ proto array svn_info(string path, bool recurse = false) */
+
+static svn_error_t *info_func (void *baton, const char *path, const svn_info_t *info, apr_pool_t *pool) {
+	zval *return_value = (zval*)baton;
+	zval *entry;
+	TSRMLS_FETCH();
+
+	MAKE_STD_ZVAL(entry);
+	array_init(entry);
+	
+	add_assoc_string(entry, "path", (char*)path, 1);
+	if (info) {		
+		if (info->URL) {
+			add_assoc_string(entry, "url", (char *)info->URL, 1);			
+		}
+		
+		add_assoc_long(entry, "revision", info->rev);
+		add_assoc_long(entry, "kind", info->kind);
+		
+		if (info->repos_root_URL) {
+			add_assoc_string(entry, "repos", (char *)info->repos_root_URL, 1);
+		}
+		
+		add_assoc_long(entry, "last_changed_rev", info->last_changed_rev);
+		add_assoc_string(entry, "last_changed_date", (char *) svn_time_to_cstring(info->last_changed_date, pool), 1);
+		
+		if (info->last_changed_author) {
+			add_assoc_string(entry, "last_changed_author", (char *)info->last_changed_author, 1);
+		}
+		
+		if (info->lock) {
+			add_assoc_bool(entry, "locked", 1);
+		}
+		
+		if (info->has_wc_info) {
+			add_assoc_bool(entry, "is_working_copy", 1);
+		}
+	}
+	
+	add_next_index_zval(return_value, entry);
+	
+	return NULL;
+}
+
+PHP_FUNCTION(svn_info)
+{
+	char *path;
+	int pathlen;
+	apr_pool_t *subpool;
+	zend_bool recurse = 1;
+	svn_error_t *err;
+	svn_revnum_t result_rev;
+	svn_opt_revision_t rev;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
+				&path, &pathlen, &recurse)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	array_init(return_value);
+	rev.kind = svn_opt_revision_head;
+	
+	err = svn_client_info (path, NULL, NULL, info_func, return_value, recurse, SVN_G(ctx), subpool);
+	
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 

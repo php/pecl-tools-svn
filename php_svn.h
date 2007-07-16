@@ -34,6 +34,7 @@ extern zend_module_entry svn_module_entry;
 #ifdef ZTS
 #include "TSRM.h"
 #endif
+ 
 #include "svn_client.h"
 
 PHP_MINIT_FUNCTION(svn);
@@ -57,6 +58,8 @@ PHP_FUNCTION(svn_add);
 PHP_FUNCTION(svn_status);
 PHP_FUNCTION(svn_update);
 PHP_FUNCTION(svn_import);
+
+PHP_FUNCTION(svn_info);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
