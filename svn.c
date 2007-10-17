@@ -120,6 +120,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_update, NULL)
 	PHP_FE(svn_import, NULL)
 	PHP_FE(svn_info, NULL)
+	PHP_FE(svn_export, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -1529,8 +1530,8 @@ PHP_FUNCTION(svn_repos_open)
 }
 /* }}} */
 
-/* {{{ proto array svn_info(string path, bool recurse = false) */
-
+/* {{{ proto array svn_info(string path, bool recurse = false)
+   Returns subversion information about a path */
 static svn_error_t *info_func (void *baton, const char *path, const svn_info_t *info, apr_pool_t *pool) {
 	zval *return_value = (zval*)baton;
 	zval *entry;
@@ -1603,6 +1604,50 @@ PHP_FUNCTION(svn_info)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto resource svn_export(string frompath, string topath [,bool working_copy = true])
+   Exports a clean directory tree from the repository specified into the path provided */
+PHP_FUNCTION(svn_export)
+{
+	char *from, *to;
+	int fromlen, tolen;
+	apr_pool_t *subpool;
+	zend_bool working_copy = 1;
+	svn_error_t *err;
+	svn_opt_revision_t revision, peg_revision;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
+				&from, &fromlen, &to, &tolen, &working_copy)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (working_copy) {
+		revision.kind = svn_opt_revision_working;
+	} else {
+		revision.kind = svn_opt_revision_head;
+	}
+
+	peg_revision.kind = svn_opt_revision_unspecified;
+
+	err = svn_client_export3(NULL, from, to, &peg_revision, &revision, TRUE, FALSE, TRUE, NULL, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
 	}
 
 	svn_pool_destroy(subpool);
