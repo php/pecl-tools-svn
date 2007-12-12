@@ -121,6 +121,8 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_import, NULL)
 	PHP_FE(svn_info, NULL)
 	PHP_FE(svn_export, NULL)
+	PHP_FE(svn_copy, NULL)
+	PHP_FE(svn_switch, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -1653,6 +1655,102 @@ PHP_FUNCTION(svn_export)
 	svn_pool_destroy(subpool);
 }
 /* }}} */
+
+/* {{{ proto resource svn_switch(string path, string url [,bool working_copy = true])
+   */
+PHP_FUNCTION(svn_switch)
+{
+	char *url, *path;
+	int urllen, pathlen;
+	apr_pool_t *subpool;
+	zend_bool working_copy = 1;
+	svn_error_t *err;
+	svn_opt_revision_t revision;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
+					&path, &pathlen, &url, &urllen, &working_copy)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (working_copy) {
+		revision.kind = svn_opt_revision_working;
+	} else {
+		revision.kind = svn_opt_revision_head;
+	}
+
+	err = svn_client_switch(NULL, (const char*)path, (const char*)url, &revision, TRUE, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto resource svn_copy(string log, string src_path, string to_path [,bool working_copy = true])
+   */
+PHP_FUNCTION(svn_copy)
+{
+	char *src_path, *dst_path, *log;
+	int src_pathlen, dst_pathlen, loglen ;
+	apr_pool_t *subpool;
+	zend_bool working_copy = 1;
+	svn_error_t *err;
+	svn_commit_info_t *info = NULL;
+	svn_opt_revision_t revision;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss|b",
+					&log, &loglen, &src_path, &src_pathlen, &dst_path, &dst_pathlen, &working_copy)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (working_copy) {
+		revision.kind = svn_opt_revision_working;
+	} else {
+		revision.kind = svn_opt_revision_head;
+	}
+
+	SVN_G(ctx)->log_msg_baton = log;
+
+	err = svn_client_copy3(&info, (const char*)src_path, &revision, (const char*)dst_path, SVN_G(ctx), subpool);
+	SVN_G(ctx)->log_msg_baton = NULL;
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else if (info) {
+		array_init(return_value);
+		add_next_index_long(return_value, info->revision);
+		add_next_index_string(return_value, (char*)info->date, 1);
+		add_next_index_string(return_value, (char*)info->author, 1);
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "commit didn't return any info");
+		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+
 
 /* {{{ proto resource svn_repos_create(string path [, array config [, array fsconfig]])
    Create a new subversion repository at path */
