@@ -52,6 +52,7 @@ PHP_FUNCTION(svn_auth_get_parameter);
 PHP_FUNCTION(svn_client_version);
 PHP_FUNCTION(svn_diff);
 PHP_FUNCTION(svn_cleanup);
+PHP_FUNCTION(svn_revert);
 
 PHP_FUNCTION(svn_commit);
 PHP_FUNCTION(svn_add);
@@ -62,6 +63,7 @@ PHP_FUNCTION(svn_info);
 PHP_FUNCTION(svn_export);
 PHP_FUNCTION(svn_copy);
 PHP_FUNCTION(svn_switch);
+PHP_FUNCTION(svn_blame);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
@@ -95,9 +97,8 @@ PHP_FUNCTION(svn_fs_abort_txn);
 
 /* TODO: */
 
-PHP_FUNCTION(svn_blame);
+
 PHP_FUNCTION(svn_merge);
-PHP_FUNCTION(svn_revert);
 PHP_FUNCTION(svn_resolved);
 
 PHP_FUNCTION(svn_move);
