@@ -14,6 +14,8 @@
   +----------------------------------------------------------------------+
   | Authors: Alan Knowles <alan@akbkhome.com>                            |
   |          Wez Furlong <wez@omniti.com>                                |
+  |          Luca Furini <lfurini@cs.unibo.it>                           |
+  |          Jerome Renard <jerome.renard_at_gmail.com>                  |  
   +----------------------------------------------------------------------+
 */
 
@@ -53,6 +55,7 @@ PHP_FUNCTION(svn_client_version);
 PHP_FUNCTION(svn_diff);
 PHP_FUNCTION(svn_cleanup);
 PHP_FUNCTION(svn_revert);
+PHP_FUNCTION(svn_resolved);
 
 PHP_FUNCTION(svn_commit);
 PHP_FUNCTION(svn_add);
@@ -99,7 +102,7 @@ PHP_FUNCTION(svn_fs_abort_txn);
 
 
 PHP_FUNCTION(svn_merge);
-PHP_FUNCTION(svn_resolved);
+
 
 PHP_FUNCTION(svn_move);
 PHP_FUNCTION(svn_propset);

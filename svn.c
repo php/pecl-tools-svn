@@ -15,6 +15,7 @@
   | Authors: Alan Knowles <alan@akbkhome.com>                            |
   |          Wez Furlong <wez@omniti.com>                                |
   |          Luca Furini <lfurini@cs.unibo.it>                           |
+  |          Jerome Renard <jerome.renard_at_gmail.com>                  |
   +----------------------------------------------------------------------+
 */
 
@@ -115,6 +116,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_diff, NULL)
 	PHP_FE(svn_cleanup, NULL)
 	PHP_FE(svn_revert, NULL)
+	PHP_FE(svn_resolved, NULL)
 	PHP_FE(svn_commit, NULL)
 	PHP_FE(svn_add, NULL)
 	PHP_FE(svn_status, NULL)
@@ -1106,6 +1108,50 @@ PHP_FUNCTION(svn_revert)
 }
 /* }}} */
 
+/* {{{ proto bool svn_resolved(string path[, bool recursive = false]) */
+PHP_FUNCTION(svn_resolved)
+{
+	const char *path = NULL, *utf8_path = NULL, *target = NULL;
+	long pathlen;
+	zend_bool recursive = 0;
+	svn_error_t *err;
+	apr_pool_t *subpool;
+
+	if( zend_parse_parameters( ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &path, &pathlen, &recursive) ) {
+		RETURN_FALSE;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+	RETVAL_FALSE;
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	path = svn_path_canonicalize(utf8_path, subpool);
+
+	err = svn_client_resolved(
+			path,
+			recursive,
+			SVN_G(ctx),
+			subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+
+
+
 static int replicate_hash(void *pDest, int num_args, va_list args, zend_hash_key *key)
 {
 	zval **val = (zval **)pDest;
@@ -1795,11 +1841,6 @@ PHP_FUNCTION(svn_copy)
 }
 /* }}} */
 
-/* 
-This appears to be broken 
-- rev no. returns 1
-- author info never returned.
-*/
 
 static svn_error_t *
 php_svn_blame_message_receiver (void *baton,
@@ -1823,19 +1864,16 @@ php_svn_blame_message_receiver (void *baton,
 
  
 	add_assoc_long(row, "rev", (long) rev);
-
-	if (line_no) {
-		add_assoc_long(row, "line_no", line_no);
-	}
+	add_assoc_long(row, "line_no", line_no + 1);
+	add_assoc_string(row, "line", (char *) line, 1);
+	 
 	if (author) {
 		add_assoc_string(row, "author", (char *) author, 1);
 	}
 	if (date) {
 		add_assoc_string(row, "date", (char *) date, 1);
 	}
-	if (line) {
-		add_assoc_string(row, "line", (char *) line, 1);
-	}
+	 
 
 	add_next_index_zval(return_value, row); 
 	return SVN_NO_ERROR;
@@ -1849,7 +1887,12 @@ PHP_FUNCTION(svn_blame)
 	int repos_url_len;
 	int revision = -1;
 	svn_error_t *err;
-	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
+	svn_opt_revision_t	
+			start_revision = { 0 }, 
+			end_revision = { 0 }, 
+			peg_revision;
+	svn_diff_file_options_t diff_options;
+	svn_boolean_t ignore_mime_type = TRUE;
 	apr_pool_t *subpool;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &repos_url, &repos_url_len, &revision) == FAILURE) {
@@ -1874,13 +1917,19 @@ PHP_FUNCTION(svn_blame)
 		end_revision.kind   =  svn_opt_revision_number;
 		end_revision.value.number = revision ;
 	}
- 
+	peg_revision.kind = svn_opt_revision_unspecified;
+	diff_options.ignore_space = svn_diff_file_ignore_space_none;
+	diff_options.ignore_eol_style = FALSE;
+
 	array_init(return_value);
 
-	err = svn_client_blame(
+	err = svn_client_blame3(
 			repos_url,
+			&peg_revision,
 			&start_revision,
 			&end_revision,
+			&diff_options,
+			ignore_mime_type,
 			php_svn_blame_message_receiver,
 			(void *) return_value,
 			SVN_G(ctx),
