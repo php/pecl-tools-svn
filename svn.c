@@ -825,9 +825,10 @@ PHP_FUNCTION(svn_log)
 	const char *target;
 	int i;
 	apr_pool_t *subpool;
-	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
-			&repos_url, &repos_url_len, &revision) == FAILURE) {
+	int limit = 0;
+ 	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|ll", 
+			&repos_url, &repos_url_len, &revision, &limit) == FAILURE) {
 		return;
 	}
 	init_svn_client(TSRMLS_C);
@@ -859,10 +860,11 @@ PHP_FUNCTION(svn_log)
 		svn_path_canonicalize(utf8_repos_url, subpool);
 	array_init(return_value);
 	
-	err = svn_client_log(
+	err = svn_client_log2(
 		targets,
 		&start_revision,
 		&end_revision,
+		limit,
 		1, // svn_boolean_t discover_changed_paths, 
 		1, // svn_boolean_t strict_node_history, 
 		php_svn_log_message_receiver,
