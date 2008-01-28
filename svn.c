@@ -506,7 +506,7 @@ PHP_MINFO_FUNCTION(svn)
 
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
 
-/* {{{ proto bool svn_checkout(string repos, string targetpath [, int revision])
+/* {{{ proto bool svn_checkout(string repos, string targetpath [, int revision, [, int flags])
    Checks out a particular revision from repos into targetpath */
 PHP_FUNCTION(svn_checkout)
 {
@@ -515,10 +515,11 @@ PHP_FUNCTION(svn_checkout)
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	long revno = -1;
+	long flags = 0;
 	apr_pool_t *subpool;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", 
-			&repos_url, &repos_url_len, &target_path, &target_path_len, &revno) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ll", 
+			&repos_url, &repos_url_len, &target_path, &target_path_len, &revno, &flags) == FAILURE) {
 		return;
 	}
 	
@@ -534,12 +535,13 @@ PHP_FUNCTION(svn_checkout)
 	} else {
 		revision.kind = svn_opt_revision_head;
 	}
-	
-	err = svn_client_checkout (NULL,
+	  
+	err = svn_client_checkout2 (NULL,
 			repos_url,
 			target_path,
 			&revision,
-			TRUE, /* yes, we want to recurse into the URL */
+			!(flags & SVN_NON_RECURSIVE), 
+			flags & SVN_IGNORE_EXTERNALS,
 			SVN_G(ctx),
 			subpool);
 
@@ -742,6 +744,7 @@ php_svn_log_message_receiver (	void *baton,
 				const char *msg,
 				apr_pool_t *pool)
 {
+	
 	zval *return_value = (zval *)baton, *row, *paths;
 	char *path;
 	apr_hash_index_t *hi;
