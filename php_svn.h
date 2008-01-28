@@ -16,6 +16,7 @@
   |          Wez Furlong <wez@omniti.com>                                |
   |          Luca Furini <lfurini@cs.unibo.it>                           |
   |          Jerome Renard <jerome.renard_at_gmail.com>                  |  
+  |          Develar <develar_at_gmail.com>                              |
   +----------------------------------------------------------------------+
 */
 
@@ -114,6 +115,26 @@ PHP_FUNCTION(svn_uuid_from_path);
 
 PHP_FUNCTION(svn_mkdir);
 PHP_FUNCTION(svn_delete);
+
+
+
+/** constants **/
+
+#define SVN_REVISION_INITIAL 1
+#define SVN_REVISION_HEAD -1
+#define SVN_REVISION_BASE -2
+#define SVN_REVISION_COMMITTED -3
+#define SVN_REVISION_PREV -4
+
+#define SVN_NON_RECURSIVE 1 /* --non-recursive */
+#define SVN_DISCOVER_CHANGED_PATHS 2 /* --verbose */
+#define SVN_OMIT_MESSAGES 4 /* --quiet */
+#define SVN_STOP_ON_COPY 8 /* --stop-on-copy */
+#define SVN_ALL 16 /* --verbose in svn status */
+#define SVN_SHOW_UPDATES 32 /* --show-updates */
+#define SVN_NO_IGNORE 64 /* --no-ignore */
+#define SVN_IGNORE_EXTERNALS 128 /* --ignore-externals */
+  
 
 
 
