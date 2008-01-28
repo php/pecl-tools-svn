@@ -71,6 +71,16 @@ struct php_svn_repos_fs_txn {
 	svn_fs_txn_t *txn;
 };
 
+
+struct php_svn_log_receiver_baton {
+	zval *result;
+	svn_boolean_t omit_messages;
+};
+/* class entry constants */
+static zend_class_entry *ce_Svn;
+static zend_class_entry *ce_SvnRevision;
+
+/* resource constants */
 static int le_svn_repos;
 static int le_svn_fs;
 static int le_svn_fs_root;
@@ -103,6 +113,18 @@ static ZEND_RSRC_DTOR_FUNC(php_svn_repos_fs_txn_dtor)
 	zend_list_delete(r->repos->rsrc_id);
 	efree(r);
 }
+
+/** Fixme = this list needs padding out... */
+static function_entry svn_methods[] = {
+	ZEND_FENTRY(log, ZEND_FN(svn_log), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	ZEND_FENTRY(status, ZEND_FN(svn_status), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	ZEND_FENTRY(checkout, ZEND_FN(svn_checkout), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+
+	{NULL, NULL, NULL}
+};
+
+
+
 
 /* {{{ svn_functions[] */
 function_entry svn_functions[] = {
@@ -185,15 +207,26 @@ zend_module_entry svn_module_entry = {
 ZEND_GET_MODULE(svn)
 #endif
 
-/* {{{ PHP_INI
- */
-/* Remove comments and fill if you need to have entries in php.ini
-PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("svn.global_value",      "42", PHP_INI_ALL, OnUpdateLong, global_value, zend_svn_globals, svn_globals)
-    STD_PHP_INI_ENTRY("svn.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_svn_globals, svn_globals)
-PHP_INI_END()
-*/
+/* {{{ php_svn_get_revision_kind */
+static enum svn_opt_revision_kind php_svn_get_revision_kind(svn_opt_revision_t revision) 
+{
+	switch(revision.value.number) {
+ 		case svn_opt_revision_unspecified:
+ 			/* through  */
+ 		case SVN_REVISION_HEAD:
+ 			return svn_opt_revision_head;
+ 		case SVN_REVISION_BASE:
+ 			return svn_opt_revision_base;
+ 		case SVN_REVISION_COMMITTED:
+ 			return svn_opt_revision_committed;
+ 		case SVN_REVISION_PREV:
+ 			return svn_opt_revision_previous;
+ 		default:
+ 			return svn_opt_revision_number;
+	}
+}
 /* }}} */
+
 
 #include "ext/standard/php_smart_str.h"
 static void php_svn_handle_error(svn_error_t *error TSRMLS_DC)
@@ -402,11 +435,46 @@ PHP_FUNCTION(svn_import)
 /* {{{ PHP_MINIT_FUNCTION */
 PHP_MINIT_FUNCTION(svn)
 {
+	zend_class_entry ce;
+	
 	apr_initialize();
 	ZEND_INIT_MODULE_GLOBALS(svn, php_svn_init_globals, NULL);
 
 #define STRING_CONST(foo) REGISTER_STRING_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
 #define LONG_CONST(foo) REGISTER_LONG_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
+
+
+#ifdef USE_SVNCLASSES
+/* comming soon... */
+	INIT_CLASS_ENTRY(ce, "Svn", svn_methods);
+	ce_Svn = zend_register_internal_class(&ce TSRMLS_CC);
+
+	INIT_CLASS_ENTRY(ce, "SvnRevision", NULL);
+	ce_SvnRevision = zend_register_internal_class(&ce TSRMLS_CC);
+
+	#define CLASS_CONST_LONG(class_name, const_name, value) \
+		zend_declare_class_constant_long(ce_ ## class_name, const_name, \
+			sizeof(const_name)-1, (long)value TSRMLS_CC);
+
+	CLASS_CONST_LONG(Svn, "NON_RECURSIVE", SVN_NON_RECURSIVE);
+	CLASS_CONST_LONG(Svn, "DISCOVER_CHANGED_PATHS", SVN_DISCOVER_CHANGED_PATHS);
+	CLASS_CONST_LONG(Svn, "OMIT_MESSAGES", SVN_OMIT_MESSAGES);
+	CLASS_CONST_LONG(Svn, "STOP_ON_COPY", SVN_STOP_ON_COPY);
+	CLASS_CONST_LONG(Svn, "ALL", SVN_ALL);
+	CLASS_CONST_LONG(Svn, "SHOW_UPDATES", SVN_SHOW_UPDATES);
+	CLASS_CONST_LONG(Svn, "NO_IGNORE", SVN_NO_IGNORE);
+	CLASS_CONST_LONG(Svn, "IGNORE_EXTERNALS", SVN_IGNORE_EXTERNALS);
+
+	CLASS_CONST_LONG(SvnRevision, "INITIAL", SVN_REVISION_INITIAL);
+	CLASS_CONST_LONG(SvnRevision, "HEAD", SVN_REVISION_HEAD);
+	CLASS_CONST_LONG(SvnRevision, "BASE", SVN_REVISION_BASE);
+	CLASS_CONST_LONG(SvnRevision, "COMMITTED", SVN_REVISION_COMMITTED);
+	CLASS_CONST_LONG(SvnRevision, "PREV", SVN_REVISION_PREV);
+
+
+#endif
+
+
 	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_USERNAME);
 	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_PASSWORD);
 	STRING_CONST(SVN_AUTH_PARAM_NON_INTERACTIVE);
@@ -426,6 +494,21 @@ PHP_MINIT_FUNCTION(svn)
 	STRING_CONST(SVN_PROP_REVISION_AUTHOR);
 	STRING_CONST(SVN_PROP_REVISION_LOG);
 
+	LONG_CONST(SVN_REVISION_INITIAL);
+	LONG_CONST(SVN_REVISION_HEAD);
+	LONG_CONST(SVN_REVISION_BASE);
+	LONG_CONST(SVN_REVISION_COMMITTED);
+	LONG_CONST(SVN_REVISION_PREV);
+	
+	
+	LONG_CONST(SVN_NON_RECURSIVE);   /* --non-recursive */
+	LONG_CONST(SVN_DISCOVER_CHANGED_PATHS);    /* --verbose */
+	LONG_CONST(SVN_OMIT_MESSAGES);    /* --quiet */
+	LONG_CONST(SVN_STOP_ON_COPY);    /* --stop-on-copy */
+	LONG_CONST(SVN_ALL);    /* --verbose in svn status */
+	LONG_CONST(SVN_SHOW_UPDATES);   /* --show-updates */
+	LONG_CONST(SVN_NO_IGNORE);   /* --no-ignore */
+	
 	LONG_CONST(svn_wc_status_none);
 	LONG_CONST(svn_wc_status_unversioned);
 	LONG_CONST(svn_wc_status_normal);
@@ -513,7 +596,7 @@ PHP_FUNCTION(svn_checkout)
 	char *repos_url = NULL, *target_path = NULL;
 	int repos_url_len, target_path_len;
 	svn_error_t *err;
-	svn_opt_revision_t revision = { 0 };
+	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 };
 	long revno = -1;
 	long flags = 0;
 	apr_pool_t *subpool;
@@ -535,11 +618,13 @@ PHP_FUNCTION(svn_checkout)
 	} else {
 		revision.kind = svn_opt_revision_head;
 	}
-	  
+	peg_revision.kind = svn_opt_revision_unspecified;
+	
 	err = svn_client_checkout2 (NULL,
 			repos_url,
 			target_path,
 			&revision,
+			&peg_revision,
 			!(flags & SVN_NON_RECURSIVE), 
 			flags & SVN_IGNORE_EXTERNALS,
 			SVN_G(ctx),
@@ -736,7 +821,7 @@ cleanup:
 }
 /* }}} */
 static svn_error_t *
-php_svn_log_message_receiver (	void *baton,
+php_svn_log_receiver (	void *ibaton,
 				apr_hash_t *changed_paths,
 				svn_revnum_t rev,
 				const char *author,
@@ -744,8 +829,8 @@ php_svn_log_message_receiver (	void *baton,
 				const char *msg,
 				apr_pool_t *pool)
 {
-	
-	zval *return_value = (zval *)baton, *row, *paths;
+	struct php_svn_log_receiver_baton *baton = (struct php_svn_log_receiver_baton*) ibaton;
+	zval  *row, *paths;
 	char *path;
 	apr_hash_index_t *hi;
 	apr_array_header_t *sorted_paths;
@@ -763,7 +848,7 @@ php_svn_log_message_receiver (	void *baton,
 	if (author) {
 		add_assoc_string(row, "author", (char *) author, 1);
 	}
-	if (msg) {
+	if (!baton->omit_messages && msg) {
 		add_assoc_string(row, "msg", (char *) msg, 1);
 	}
 	if (date) {
@@ -771,7 +856,7 @@ php_svn_log_message_receiver (	void *baton,
 	}
 
 	if (!changed_paths) {
-		add_next_index_zval(return_value, row); 
+		add_next_index_zval(baton->result, row); 
 		return SVN_NO_ERROR;
 	}
 
@@ -809,17 +894,18 @@ php_svn_log_message_receiver (	void *baton,
 	}
 
 	add_assoc_zval(row,"paths",paths);
-	add_next_index_zval(return_value, row); 
+	add_next_index_zval(baton->result, row); 
 	return SVN_NO_ERROR;
 }
 
-/* {{{ proto array svn_log(string repos_url[, int revision_no])
-   Returns the commit log messages of repos_url, optionally at revision_no */
+/* {{{ proto array svn_log(string repos_url[, int start_revision_no =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int flags [, int limit ]]]])
+   Returns the commit log messages of repos_url */
 PHP_FUNCTION(svn_log)
 {
 	const char *repos_url = NULL, *utf8_repos_url = NULL; 
 	int repos_url_len;
-	int revision = -2;
+	int start_rev = -2;
+	int end_rev = -2;
 	svn_error_t *err;
 	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
 	char *retdata =NULL;
@@ -829,9 +915,13 @@ PHP_FUNCTION(svn_log)
 	int i;
 	apr_pool_t *subpool;
 	int limit = 0;
+	long flags = 0;
+	struct php_svn_log_receiver_baton baton;
  	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|ll", 
-			&repos_url, &repos_url_len, &revision, &limit) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|llll", 
+			&repos_url, &repos_url_len,
+			&start_rev, &end_rev , &flags,
+			&limit) == FAILURE) {
 		return;
 	}
 	init_svn_client(TSRMLS_C);
@@ -842,36 +932,51 @@ PHP_FUNCTION(svn_log)
 	RETVAL_FALSE;
   
 	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
-	if (revision < -1) {
-		start_revision.kind =  svn_opt_revision_head;
-		end_revision.kind   =  svn_opt_revision_number;
-		end_revision.value.number = 1 ;
-	} else  if (revision == -1) {
-		start_revision.kind =  svn_opt_revision_head;
-		end_revision.kind   =  svn_opt_revision_head;
-	} else {						
-		start_revision.kind =  svn_opt_revision_number;
-		start_revision.value.number = revision ;
-		end_revision.kind   =  svn_opt_revision_number;
-		end_revision.value.number = revision ;
+	
+	/* BC ... */
+	
+	if (end_rev < -1) {   /* eg. only start_rev is set... */
+		 
+		if (start_rev < -1) { /* default  1 to head. */
+			start_revision.kind =  svn_opt_revision_head;
+			end_revision.kind   =  svn_opt_revision_number;
+			end_revision.value.number = 1 ;
+		} else  if (start_rev == -1) { /* head only. */
+			start_revision.kind =  svn_opt_revision_head;
+			end_revision.kind   =  svn_opt_revision_head;
+		} else {	/* specific revision.	 */		
+			start_revision.kind =  svn_opt_revision_number;
+			start_revision.value.number = start_rev ;
+			end_revision.kind   =  svn_opt_revision_number;
+			end_revision.value.number = start_rev ;
+		}
+	} else {
+		/** this may still need filsing */
+		start_revision.value.number = start_rev;
+		start_revision.kind = php_svn_get_revision_kind(start_revision);
+		end_revision.value.number =  end_rev;
+		end_revision.kind = php_svn_get_revision_kind(end_revision);
 	}
-	 
+	
+	
 	
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 	
 	APR_ARRAY_PUSH(targets, const char *) = 
 		svn_path_canonicalize(utf8_repos_url, subpool);
 	array_init(return_value);
-	
+	baton.result = (zval *)return_value;
+	baton.omit_messages = flags & SVN_OMIT_MESSAGES;
+  
 	err = svn_client_log2(
 		targets,
 		&start_revision,
 		&end_revision,
 		limit,
-		1, // svn_boolean_t discover_changed_paths, 
-		1, // svn_boolean_t strict_node_history, 
-		php_svn_log_message_receiver,
-		(void *) return_value,
+		flags & SVN_DISCOVER_CHANGED_PATHS, 
+		flags & SVN_STOP_ON_COPY,
+		php_svn_log_receiver,
+		(void *) &baton,
 		SVN_G(ctx), subpool);
  
 	if (err) {
@@ -2174,10 +2279,10 @@ PHP_FUNCTION(svn_add)
 }
 /* }}} */
 
-/* {{{ proto array svn_status(string path [, bool recursive [, bool get_all [, bool update [, bool no_ignore]]]])
+/* {{{ proto array svn_status(string path [, int flags]])
    Returns the status of working copy files and directories */
 
-static void status_func(void *baton, const char *path, svn_wc_status_t *status)
+static void php_svn_status_receiver(void *baton, const char *path, svn_wc_status2_t *status)
 {
 	zval *return_value = (zval*)baton;
 	zval *entry;
@@ -2192,9 +2297,9 @@ static void status_func(void *baton, const char *path, svn_wc_status_t *status)
 		add_assoc_long(entry, "repos_text_status", status->repos_text_status);
 		add_assoc_long(entry, "prop_status", status->prop_status);
 		add_assoc_long(entry, "repos_prop_status", status->repos_prop_status);
-		if (status->locked) add_assoc_bool(entry, "locked", status->locked);
-		if (status->copied) add_assoc_bool(entry, "copied", status->copied);
-		if (status->switched) add_assoc_bool(entry, "switched", status->switched);
+		add_assoc_bool(entry, "locked", status->locked);
+		add_assoc_bool(entry, "copied", status->copied);
+		add_assoc_bool(entry, "switched", status->switched);
 
 		if (status->entry) {
 			if (status->entry->name) {
@@ -2240,15 +2345,16 @@ static void status_func(void *baton, const char *path, svn_wc_status_t *status)
 PHP_FUNCTION(svn_status)
 {
 	char *path;
-	int pathlen;
+	int path_len;
+	long flags = 0;
 	zend_bool recurse = 1, get_all = 0, update = 0, no_ignore = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
-	svn_revnum_t result_rev;
-	svn_opt_revision_t rev;
+	svn_revnum_t result_revision;
+	svn_opt_revision_t revision;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bbbb",
-				&path, &pathlen, &recurse, &get_all, &update, &no_ignore)) {
+				&path, &path_len, &flags)) {
 		return;
 	}
 
@@ -2259,9 +2365,23 @@ PHP_FUNCTION(svn_status)
 	}
 
 	array_init(return_value);
-	rev.kind = svn_opt_revision_head;
-	err = svn_client_status(&result_rev, path, &rev, status_func, return_value,
-			recurse, get_all, update, no_ignore, SVN_G(ctx), subpool);
+	revision.kind = svn_opt_revision_head;
+	 
+	err = svn_client_status2(
+		&result_revision, 
+		path, 
+		&revision,
+		php_svn_status_receiver,
+		(void*)return_value,
+		!(flags & SVN_NON_RECURSIVE), 
+		flags & SVN_ALL, 
+		flags & SVN_SHOW_UPDATES, 
+		flags & SVN_NO_IGNORE, 
+		flags & SVN_IGNORE_EXTERNALS,
+		SVN_G(ctx), 
+		subpool);
+  
+	
 	
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
