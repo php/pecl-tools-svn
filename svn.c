@@ -898,7 +898,7 @@ php_svn_log_receiver (	void *ibaton,
 	return SVN_NO_ERROR;
 }
 
-/* {{{ proto array svn_log(string repos_url[, int start_revision_no =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int flags [, int limit ]]]])
+/* {{{ proto array svn_log(string repos_url[, int start_revision_no =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
    Returns the commit log messages of repos_url */
 PHP_FUNCTION(svn_log)
 {
@@ -920,8 +920,8 @@ PHP_FUNCTION(svn_log)
  	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|llll", 
 			&repos_url, &repos_url_len,
-			&start_rev, &end_rev , &flags,
-			&limit) == FAILURE) {
+			&start_rev, &end_rev ,
+			&limit,  &flags) == FAILURE) {
 		return;
 	}
 	init_svn_client(TSRMLS_C);
