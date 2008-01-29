@@ -4,8 +4,8 @@ Svn::log() --limit NUM
 <?php
 
 $url = 'file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r' . DIRECTORY_SEPARATOR . 'renamed_test';
-var_dump(Svn::log($url, 1));
-var_dump(Svn::log($url, 3));
+var_dump(Svn::log($url, null, null, 1));
+var_dump(Svn::log($url, null, null, 3));
 
 ?>
 --EXPECT--

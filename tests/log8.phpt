@@ -4,7 +4,7 @@ Svn::log() --quiet --verbose
 <?php
 
 $url = 'file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r' . DIRECTORY_SEPARATOR . 'renamed_test';
-var_dump(Svn::log($url, null, Svn::OMIT_MESSAGES | Svn::DISCOVER_CHANGED_PATHS));
+var_dump(Svn::log($url, null, null, null, Svn::OMIT_MESSAGES | Svn::DISCOVER_CHANGED_PATHS));
 
 ?>
 --EXPECT--

@@ -5,19 +5,19 @@ Svn::log() --revision ARG[:ARG] (depends on the Svn::checkout())
 
 $repository_url = 'file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r';
 $url = $repository_url . DIRECTORY_SEPARATOR . 'renamed_test';
-var_dump(Svn::log($url, null, null, SvnRevision::HEAD));
-var_dump(Svn::log($url, null, null, SvnRevision::HEAD, 2));
-var_dump(Svn::log($url, null, null, 2, SvnRevision::HEAD));
-var_dump(Svn::log($url, null, null, 4, 2));
-var_dump(Svn::log($url, null, null, 4));
-var_dump(Svn::log($url, null, null, 4, SvnRevision::INITIAL));
-var_dump(Svn::log($url, null, null, 4, 0)); // use SvnRevision::INITIAL, not magic number. it is only a test*/
+var_dump(Svn::log($url, SvnRevision::HEAD));
+var_dump(Svn::log($url, SvnRevision::HEAD, 2));
+var_dump(Svn::log($url, 2, SvnRevision::HEAD));
+var_dump(Svn::log($url,4, 2));
+var_dump(Svn::log($url, 4));
+var_dump(Svn::log($url, 4, SvnRevision::INITIAL));
+var_dump(Svn::log($url, 4, 0)); // use SvnRevision::INITIAL, not magic number. it is only a test*/
 
 $wc_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . 'wc';
 Svn::checkout($repository_url, $wc_path);
-var_dump(Svn::log($wc_path, null, null, SvnRevision::BASE, SvnRevision::PREV));
-var_dump(Svn::log($wc_path, null, null, SvnRevision::BASE, SvnRevision::COMMITTED));
-var_dump(Svn::log($wc_path, null, null, SvnRevision::BASE));
+var_dump(Svn::log($wc_path, SvnRevision::BASE, SvnRevision::PREV));
+var_dump(Svn::log($wc_path, SvnRevision::BASE, SvnRevision::COMMITTED));
+var_dump(Svn::log($wc_path, SvnRevision::BASE));
 
 ?>
 --CLEAN--
