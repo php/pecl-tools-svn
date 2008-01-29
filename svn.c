@@ -116,6 +116,7 @@ static ZEND_RSRC_DTOR_FUNC(php_svn_repos_fs_txn_dtor)
 
 /** Fixme = this list needs padding out... */
 static function_entry svn_methods[] = {
+	ZEND_FENTRY(cat, ZEND_FN(svn_cat), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	ZEND_FENTRY(log, ZEND_FN(svn_log), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	ZEND_FENTRY(status, ZEND_FN(svn_status), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	ZEND_FENTRY(checkout, ZEND_FN(svn_checkout), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
@@ -436,6 +437,10 @@ PHP_FUNCTION(svn_import)
 PHP_MINIT_FUNCTION(svn)
 {
 	zend_class_entry ce;
+	zend_class_entry *ce_SvnRevision;
+	zend_class_entry *ce_SvnWc;
+	zend_class_entry *ce_SvnWcSchedule;
+	zend_class_entry *ce_SvnNode;
 	
 	apr_initialize();
 	ZEND_INIT_MODULE_GLOBALS(svn, php_svn_init_globals, NULL);
@@ -451,6 +456,18 @@ PHP_MINIT_FUNCTION(svn)
 	INIT_CLASS_ENTRY(ce, "SvnRevision", NULL);
 	ce_SvnRevision = zend_register_internal_class(&ce TSRMLS_CC);
 
+	INIT_CLASS_ENTRY(ce, "SvnWc", NULL);
+		ce_SvnWc = zend_register_internal_class(&ce TSRMLS_CC);
+
+	INIT_CLASS_ENTRY(ce, "SvnWcSchedule", NULL);
+		ce_SvnWcSchedule = zend_register_internal_class(&ce TSRMLS_CC);
+
+	INIT_CLASS_ENTRY(ce, "SvnNode", NULL);
+		ce_SvnNode = zend_register_internal_class(&ce TSRMLS_CC);
+	
+	
+	
+	
 #define CLASS_CONST_LONG(class_name, const_name, value) \
 		zend_declare_class_constant_long(ce_ ## class_name, const_name, \
 			sizeof(const_name)-1, (long)value TSRMLS_CC);
@@ -471,6 +488,30 @@ PHP_MINIT_FUNCTION(svn)
 	CLASS_CONST_LONG(SvnRevision, "PREV", SVN_REVISION_PREV);
 
 
+	CLASS_CONST_LONG(SvnWc, "NONE", svn_wc_status_none);
+	CLASS_CONST_LONG(SvnWc, "UNVERSIONED", svn_wc_status_unversioned);
+	CLASS_CONST_LONG(SvnWc, "NORMAL", svn_wc_status_normal);
+	CLASS_CONST_LONG(SvnWc, "ADDED", svn_wc_status_added);
+	CLASS_CONST_LONG(SvnWc, "MISSING", svn_wc_status_missing);
+	CLASS_CONST_LONG(SvnWc, "DELETED", svn_wc_status_deleted);
+	CLASS_CONST_LONG(SvnWc, "REPLACED", svn_wc_status_replaced);
+	CLASS_CONST_LONG(SvnWc, "MODIFIED", svn_wc_status_modified);
+	CLASS_CONST_LONG(SvnWc, "MERGED", svn_wc_status_merged);
+	CLASS_CONST_LONG(SvnWc, "CONFLICTED", svn_wc_status_conflicted);
+	CLASS_CONST_LONG(SvnWc, "IGNORED", svn_wc_status_ignored);
+	CLASS_CONST_LONG(SvnWc, "OBSTRUCTED", svn_wc_status_obstructed);
+	CLASS_CONST_LONG(SvnWc, "EXTERNAL", svn_wc_status_external);
+	CLASS_CONST_LONG(SvnWc, "INCOMPLETE", svn_wc_status_incomplete);
+
+	CLASS_CONST_LONG(SvnWcSchedule, "NORMAL", svn_wc_schedule_normal);
+	CLASS_CONST_LONG(SvnWcSchedule, "ADD", svn_wc_schedule_add);
+	CLASS_CONST_LONG(SvnWcSchedule, "DELETE", svn_wc_schedule_delete);
+	CLASS_CONST_LONG(SvnWcSchedule, "REPLACE", svn_wc_schedule_replace);
+
+	CLASS_CONST_LONG(SvnNode, "NONE", svn_node_none);
+	CLASS_CONST_LONG(SvnNode, "FILE", svn_node_file);
+	CLASS_CONST_LONG(SvnNode, "DIR", svn_node_dir);
+	CLASS_CONST_LONG(SvnNode, "UNKNOWN", svn_node_unknown);
  
 
 
@@ -641,12 +682,13 @@ PHP_FUNCTION(svn_cat)
 	char *repos_url = NULL;
 	int repos_url_len, revision_no = -1, size;
 	svn_error_t *err;
-	svn_opt_revision_t revision = { 0 };
+	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 } ;
 	svn_stream_t *out = NULL;
 	svn_stringbuf_t *buf = NULL;
 	char *retdata =NULL;
 	apr_pool_t *subpool;
-
+	const char *true_path;
+	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
 		&repos_url, &repos_url_len, &revision_no) == FAILURE) {
 		return;
@@ -678,8 +720,14 @@ PHP_FUNCTION(svn_cat)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create svn stream");
 		goto cleanup;
 	}
-
-	err = svn_client_cat(out, repos_url, &revision, SVN_G(ctx), subpool);
+	
+	err = svn_opt_parse_path(&peg_revision, &true_path, repos_url, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
+ 
+	err = svn_client_cat2(out, true_path, &peg_revision, &revision, SVN_G(ctx), subpool)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
