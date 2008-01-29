@@ -727,7 +727,7 @@ PHP_FUNCTION(svn_cat)
 		goto cleanup;
 	}
  
-	err = svn_client_cat2(out, true_path, &peg_revision, &revision, SVN_G(ctx), subpool)
+	err = svn_client_cat2(out, true_path, &peg_revision, &revision, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
