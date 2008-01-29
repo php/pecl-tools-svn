@@ -444,15 +444,14 @@ PHP_MINIT_FUNCTION(svn)
 #define LONG_CONST(foo) REGISTER_LONG_CONSTANT(#foo, foo, CONST_CS|CONST_PERSISTENT)
 
 
-#ifdef USE_SVNCLASSES
-/* comming soon... */
+ 
 	INIT_CLASS_ENTRY(ce, "Svn", svn_methods);
 	ce_Svn = zend_register_internal_class(&ce TSRMLS_CC);
 
 	INIT_CLASS_ENTRY(ce, "SvnRevision", NULL);
 	ce_SvnRevision = zend_register_internal_class(&ce TSRMLS_CC);
 
-	#define CLASS_CONST_LONG(class_name, const_name, value) \
+#define CLASS_CONST_LONG(class_name, const_name, value) \
 		zend_declare_class_constant_long(ce_ ## class_name, const_name, \
 			sizeof(const_name)-1, (long)value TSRMLS_CC);
 
@@ -472,7 +471,7 @@ PHP_MINIT_FUNCTION(svn)
 	CLASS_CONST_LONG(SvnRevision, "PREV", SVN_REVISION_PREV);
 
 
-#endif
+ 
 
 
 	STRING_CONST(SVN_AUTH_PARAM_DEFAULT_USERNAME);
@@ -535,9 +534,7 @@ PHP_MINIT_FUNCTION(svn)
 	LONG_CONST(svn_wc_schedule_delete);
 	LONG_CONST(svn_wc_schedule_replace);
 	
-	/* this is probably temporary until we sort out a proper revision parser. */
-	REGISTER_LONG_CONSTANT("SVN_REVISION_HEAD", -1, CONST_CS|CONST_PERSISTENT);
-
+	 
 
 	le_svn_repos = zend_register_list_destructors_ex(php_svn_repos_dtor,
 			NULL, "svn-repos", module_number);
@@ -589,7 +586,7 @@ PHP_MINFO_FUNCTION(svn)
 
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
 
-/* {{{ proto bool svn_checkout(string repos, string targetpath [, int revision, [, int flags])
+/* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = SvnRevision::HEAD, [, int flags])
    Checks out a particular revision from repos into targetpath */
 PHP_FUNCTION(svn_checkout)
 {
@@ -597,12 +594,13 @@ PHP_FUNCTION(svn_checkout)
 	int repos_url_len, target_path_len;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 };
-	long revno = -1;
 	long flags = 0;
 	apr_pool_t *subpool;
-
+	
+	revision.value.number = 0;
+	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ll", 
-			&repos_url, &repos_url_len, &target_path, &target_path_len, &revno, &flags) == FAILURE) {
+			&repos_url, &repos_url_len, &target_path, &target_path_len, &revision.value.number, &flags) == FAILURE) {
 		return;
 	}
 	
@@ -612,19 +610,14 @@ PHP_FUNCTION(svn_checkout)
 		RETURN_FALSE;
 	}
 	
-	if (revno > 0) {
-		revision.kind = svn_opt_revision_number;
-		revision.value.number = revno;
-	} else {
-		revision.kind = svn_opt_revision_head;
-	}
+	revision.kind = php_svn_get_revision_kind(revision);
 	peg_revision.kind = svn_opt_revision_unspecified;
 	
 	err = svn_client_checkout2 (NULL,
 			repos_url,
 			target_path,
-			&revision,
 			&peg_revision,
+			&revision,
 			!(flags & SVN_NON_RECURSIVE), 
 			flags & SVN_IGNORE_EXTERNALS,
 			SVN_G(ctx),
@@ -855,66 +848,63 @@ php_svn_log_receiver (	void *ibaton,
 		add_assoc_string(row, "date", (char *) date, 1);
 	}
 
-	if (!changed_paths) {
-		add_next_index_zval(baton->result, row); 
-		return SVN_NO_ERROR;
-	}
+	if (changed_paths) {
+		
 
-	MAKE_STD_ZVAL(paths);
-	array_init(paths);
+		MAKE_STD_ZVAL(paths);
+		array_init(paths);
 
-	sorted_paths = svn_sort__hash(changed_paths,
-			svn_sort_compare_items_as_paths, pool);
+		sorted_paths = svn_sort__hash(changed_paths, svn_sort_compare_items_as_paths, pool);
 
-	for (i = 0; i < sorted_paths->nelts; i++)
-	{
-		svn_sort__item_t *item;
-		svn_log_changed_path_t *log_item;
-		zval *zpaths;
-		const char *path;
+		for (i = 0; i < sorted_paths->nelts; i++)
+		{
+			svn_sort__item_t *item;
+			svn_log_changed_path_t *log_item;
+			zval *zpaths;
+			const char *path;
 
-		MAKE_STD_ZVAL(zpaths);
-		array_init(zpaths);
-		item = &(APR_ARRAY_IDX (sorted_paths, i, svn_sort__item_t));
-		path = item->key;
-		log_item = apr_hash_get (changed_paths, item->key, item->klen);
+			MAKE_STD_ZVAL(zpaths);
+			array_init(zpaths);
+			item = &(APR_ARRAY_IDX (sorted_paths, i, svn_sort__item_t));
+			path = item->key;
+			log_item = apr_hash_get (changed_paths, item->key, item->klen);
 
-		add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
-		add_assoc_string(zpaths, "path", (char *) item->key, 1);
+			add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
+			add_assoc_string(zpaths, "path", (char *) item->key, 1);
 
-		if (log_item->copyfrom_path
-				&& SVN_IS_VALID_REVNUM (log_item->copyfrom_rev)) {
-			add_assoc_string(zpaths, "copyfrom", (char *) log_item->copyfrom_path, 1);
-			add_assoc_long(zpaths, "rev", (long) log_item->copyfrom_rev);
-		} else {
+			if (log_item->copyfrom_path
+					&& SVN_IS_VALID_REVNUM (log_item->copyfrom_rev)) {
+				add_assoc_string(zpaths, "copyfrom", (char *) log_item->copyfrom_path, 1);
+				add_assoc_long(zpaths, "rev", (long) log_item->copyfrom_rev);
+			} else {
 
+			}
+
+			add_next_index_zval(paths,zpaths);
 		}
-
-		add_next_index_zval(paths,zpaths);
+		add_assoc_zval(row,"paths",paths);
 	}
-
-	add_assoc_zval(row,"paths",paths);
+	
 	add_next_index_zval(baton->result, row); 
 	return SVN_NO_ERROR;
 }
 
-/* {{{ proto array svn_log(string repos_url[, int start_revision_no =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
+/* {{{ proto array svn_log(string repos_url[, int start_revision =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
    Returns the commit log messages of repos_url */
 PHP_FUNCTION(svn_log)
 {
 	const char *repos_url = NULL, *utf8_repos_url = NULL; 
 	int repos_url_len;
-	int start_rev = -2;
-	int end_rev = -2;
+	long start_rev = 0;
+	long end_rev = 0;
 	svn_error_t *err;
 	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
-	char *retdata =NULL;
-	int size;
+ 
 	apr_array_header_t *targets;
 	const char *target;
-	int i;
+ 
 	apr_pool_t *subpool;
-	int limit = 0;
+	long limit = 0;
 	long flags = 0;
 	struct php_svn_log_receiver_baton baton;
  	
@@ -933,30 +923,25 @@ PHP_FUNCTION(svn_log)
   
 	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
 	
+	
+	start_revision.value.number = start_rev;
+	end_revision.value.number =  end_rev;
+	
 	/* BC ... */
 	
-	if (end_rev < -1) {   /* eg. only start_rev is set... */
-		 
-		if (start_rev < -1) { /* default  1 to head. */
-			start_revision.kind =  svn_opt_revision_head;
-			end_revision.kind   =  svn_opt_revision_number;
-			end_revision.value.number = 1 ;
-		} else  if (start_rev == -1) { /* head only. */
-			start_revision.kind =  svn_opt_revision_head;
-			end_revision.kind   =  svn_opt_revision_head;
-		} else {	/* specific revision.	 */		
-			start_revision.kind =  svn_opt_revision_number;
-			start_revision.value.number = start_rev ;
-			end_revision.kind   =  svn_opt_revision_number;
-			end_revision.value.number = start_rev ;
-		}
-	} else {
-		/** this may still need filsing */
-		start_revision.value.number = start_rev;
-		start_revision.kind = php_svn_get_revision_kind(start_revision);
-		end_revision.value.number =  end_rev;
-		end_revision.kind = php_svn_get_revision_kind(end_revision);
+	if (ZEND_NUM_ARGS() == 3 && end_revision.value.number == 0) {
+		end_revision.value.number = SVN_REVISION_INITIAL;
 	}
+	 
+	start_revision.kind = php_svn_get_revision_kind(start_revision);
+	
+	if (start_revision.value.number == svn_opt_revision_unspecified) {
+		end_revision.kind = svn_opt_revision_number;
+	} else if (end_revision.value.number == svn_opt_revision_unspecified) {
+		end_revision = start_revision;
+	} else {
+ 		end_revision.kind = php_svn_get_revision_kind(end_revision);
+ 	}
 	
 	
 	
@@ -2353,7 +2338,7 @@ PHP_FUNCTION(svn_status)
 	svn_revnum_t result_revision;
 	svn_opt_revision_t revision;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bbbb",
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l",
 				&path, &path_len, &flags)) {
 		return;
 	}
