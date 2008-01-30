@@ -114,12 +114,13 @@ static ZEND_RSRC_DTOR_FUNC(php_svn_repos_fs_txn_dtor)
 	efree(r);
 }
 
+#define SVN_STATIC_ME(name) ZEND_FENTRY(name, ZEND_FN(svn_ ## name), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 /** Fixme = this list needs padding out... */
 static function_entry svn_methods[] = {
-	ZEND_FENTRY(cat, ZEND_FN(svn_cat), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
-	ZEND_FENTRY(log, ZEND_FN(svn_log), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
-	ZEND_FENTRY(status, ZEND_FN(svn_status), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
-	ZEND_FENTRY(checkout, ZEND_FN(svn_checkout), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	SVN_STATIC_ME(cat)
+	SVN_STATIC_ME(checkout)
+	SVN_STATIC_ME(log)
+	SVN_STATIC_ME(status)
 
 	{NULL, NULL, NULL}
 };
@@ -626,7 +627,9 @@ PHP_MINFO_FUNCTION(svn)
 
 
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
-
+/* {{{ proto bool Svn:checkout(string repository_url, string target_path [, int revision = SvnRevision::HEAD, [, int flags])
+   Check out a working copy from a repository */
+/* }}} */   
 /* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = SvnRevision::HEAD, [, int flags])
    Checks out a particular revision from repos into targetpath */
 PHP_FUNCTION(svn_checkout)
@@ -640,7 +643,7 @@ PHP_FUNCTION(svn_checkout)
 	long flags = 0;
 	apr_pool_t *subpool;
 	
-	revision.value.number = 0;
+	revision.value.number = svn_opt_revision_unspecified;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ll", 
 			&repos_url, &repos_url_len, &target_path, &target_path_len, &revision.value.number, &flags) == FAILURE) {
@@ -946,15 +949,16 @@ php_svn_log_receiver (	void *ibaton,
 	add_next_index_zval(baton->result, row); 
 	return SVN_NO_ERROR;
 }
-
+/* {{{ proto array Svn::log(string url[, int start_revision =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
+   Returns commit log messages */
+/* }}} */   
 /* {{{ proto array svn_log(string repos_url[, int start_revision =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
    Returns the commit log messages of repos_url */
 PHP_FUNCTION(svn_log)
 {
-	const char *repos_url = NULL, *utf8_repos_url = NULL; 
-	int repos_url_len;
-	long start_rev = 0;
-	long end_rev = 0;
+	const char *url = NULL, *utf8_url = NULL; 
+	int url_len;
+	 
 	svn_error_t *err;
 	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
  
@@ -966,9 +970,12 @@ PHP_FUNCTION(svn_log)
 	long flags = 0;
 	struct php_svn_log_receiver_baton baton;
  	
+	start_revision.value.number == svn_opt_revision_unspecified;
+	end_revision.value.number == svn_opt_revision_unspecified;
+	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|llll", 
-			&repos_url, &repos_url_len,
-			&start_rev, &end_rev ,
+			&url, &url_len,
+			&start_revision.value.number, &end_revision.value.number,
 			&limit,  &flags) == FAILURE) {
 		return;
 	}
@@ -979,15 +986,10 @@ PHP_FUNCTION(svn_log)
 	}
 	RETVAL_FALSE;
   
-	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	  
 	
-	
-	start_revision.value.number = start_rev;
-	end_revision.value.number =  end_rev;
-	
-	/* BC ... */
-	
-	if (ZEND_NUM_ARGS() == 3 && end_revision.value.number == 0) {
+	if ((ZEND_NUM_ARGS() > 2) && (end_revision.value.number == svn_opt_revision_unspecified)) {
 		end_revision.value.number = SVN_REVISION_INITIAL;
 	}
 	 
@@ -1006,7 +1008,7 @@ PHP_FUNCTION(svn_log)
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 	
 	APR_ARRAY_PUSH(targets, const char *) = 
-		svn_path_canonicalize(utf8_repos_url, subpool);
+		svn_path_canonicalize(utf8_url, subpool);
 	array_init(return_value);
 	baton.result = (zval *)return_value;
 	baton.omit_messages = flags & SVN_OMIT_MESSAGES;
