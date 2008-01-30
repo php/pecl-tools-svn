@@ -78,7 +78,7 @@ struct php_svn_log_receiver_baton {
 };
 /* class entry constants */
 static zend_class_entry *ce_Svn;
-static zend_class_entry *ce_SvnRevision;
+
 
 /* resource constants */
 static int le_svn_repos;
@@ -438,7 +438,6 @@ PHP_FUNCTION(svn_import)
 PHP_MINIT_FUNCTION(svn)
 {
 	zend_class_entry ce;
-	zend_class_entry *ce_SvnRevision;
 	zend_class_entry *ce_SvnWc;
 	zend_class_entry *ce_SvnWcSchedule;
 	zend_class_entry *ce_SvnNode;
@@ -454,9 +453,7 @@ PHP_MINIT_FUNCTION(svn)
 	INIT_CLASS_ENTRY(ce, "Svn", svn_methods);
 	ce_Svn = zend_register_internal_class(&ce TSRMLS_CC);
 
-	INIT_CLASS_ENTRY(ce, "SvnRevision", NULL);
-	ce_SvnRevision = zend_register_internal_class(&ce TSRMLS_CC);
-
+	
 	INIT_CLASS_ENTRY(ce, "SvnWc", NULL);
 		ce_SvnWc = zend_register_internal_class(&ce TSRMLS_CC);
 
@@ -482,11 +479,11 @@ PHP_MINIT_FUNCTION(svn)
 	CLASS_CONST_LONG(Svn, "NO_IGNORE", SVN_NO_IGNORE);
 	CLASS_CONST_LONG(Svn, "IGNORE_EXTERNALS", SVN_IGNORE_EXTERNALS);
 
-	CLASS_CONST_LONG(SvnRevision, "INITIAL", SVN_REVISION_INITIAL);
-	CLASS_CONST_LONG(SvnRevision, "HEAD", SVN_REVISION_HEAD);
-	CLASS_CONST_LONG(SvnRevision, "BASE", SVN_REVISION_BASE);
-	CLASS_CONST_LONG(SvnRevision, "COMMITTED", SVN_REVISION_COMMITTED);
-	CLASS_CONST_LONG(SvnRevision, "PREV", SVN_REVISION_PREV);
+	CLASS_CONST_LONG(Svn, "INITIAL", SVN_REVISION_INITIAL);
+	CLASS_CONST_LONG(Svn, "HEAD", SVN_REVISION_HEAD);
+	CLASS_CONST_LONG(Svn, "BASE", SVN_REVISION_BASE);
+	CLASS_CONST_LONG(Svn, "COMMITTED", SVN_REVISION_COMMITTED);
+	CLASS_CONST_LONG(Svn, "PREV", SVN_REVISION_PREV);
 
 
 	CLASS_CONST_LONG(SvnWc, "NONE", svn_wc_status_none);
@@ -627,10 +624,10 @@ PHP_MINFO_FUNCTION(svn)
 
 
 /* reference http://www.linuxdevcenter.com/pub/a/linux/2003/04/24/libsvn1.html */
-/* {{{ proto bool Svn:checkout(string repository_url, string target_path [, int revision = SvnRevision::HEAD, [, int flags])
+/* {{{ proto bool Svn:checkout(string repository_url, string target_path [, int revision = Svn::HEAD, [, int flags])
    Check out a working copy from a repository */
 /* }}} */   
-/* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = SvnRevision::HEAD, [, int flags])
+/* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = Svn::HEAD, [, int flags])
    Checks out a particular revision from repos into targetpath */
 PHP_FUNCTION(svn_checkout)
 {
@@ -687,13 +684,15 @@ PHP_FUNCTION(svn_checkout)
 	svn_pool_destroy(subpool);
 }
 /* }}} */
-
+/* {{{ proto string Svn::cat(string url[, int revision = Svn::HEAD])
+   Returns the contents of the specified URL (for listing the contents of directories, use Svn::list()) */
+/* }}} */   
 /* {{{ proto string svn_cat(string repos_url[, int revision_no])
    Returns the contents of repos_url, optionally at revision_no */
 PHP_FUNCTION(svn_cat)
 {
-	char *repos_url = NULL;
-	int repos_url_len, revision_no = -1, size;
+	char *url = NULL;
+	int url_len, revision_no = -1, size;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 } ;
 	svn_stream_t *out = NULL;
@@ -702,8 +701,10 @@ PHP_FUNCTION(svn_cat)
 	apr_pool_t *subpool;
 	const char *true_path;
 	
+	revision.value.number = svn_opt_revision_unspecified;
+	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", 
-		&repos_url, &repos_url_len, &revision_no) == FAILURE) {
+		&url, &url_len, &revision.value.number) == FAILURE) {
 		return;
 	}
 	init_svn_client(TSRMLS_C);
@@ -714,14 +715,8 @@ PHP_FUNCTION(svn_cat)
 
 	RETVAL_FALSE;
 
-
-	if (revision_no <= 0) {
-		revision.kind = svn_opt_revision_head;
-	} else {
-		revision.kind = svn_opt_revision_number;
-		revision.value.number = revision_no ;
-	}
-
+	revision.kind = php_svn_get_revision_kind(revision);
+	 
 	buf = svn_stringbuf_create("", subpool);
 	if (!buf) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to allocate stringbuf");
@@ -733,8 +728,8 @@ PHP_FUNCTION(svn_cat)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create svn stream");
 		goto cleanup;
 	}
-	
-	err = svn_opt_parse_path(&peg_revision, &true_path, repos_url, subpool);
+	/* do we need to utf8 / canonize the path ? */
+	err = svn_opt_parse_path(&peg_revision, &true_path, url, subpool);
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		goto cleanup;
@@ -949,10 +944,10 @@ php_svn_log_receiver (	void *ibaton,
 	add_next_index_zval(baton->result, row); 
 	return SVN_NO_ERROR;
 }
-/* {{{ proto array Svn::log(string url[, int start_revision =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
+/* {{{ proto array Svn::log(string url[, int start_revision =  Svn::HEAD, [, int end_revision = Svn::INITIAL [, int limit [, int flags ]]]])
    Returns commit log messages */
 /* }}} */   
-/* {{{ proto array svn_log(string repos_url[, int start_revision =  SvnRevision::HEAD, [, int end_revision = SvnRevision::INITIAL [, int limit [, int flags ]]]])
+/* {{{ proto array svn_log(string repos_url[, int start_revision =  Svn::HEAD, [, int end_revision = Svn::INITIAL [, int limit [, int flags ]]]])
    Returns the commit log messages of repos_url */
 PHP_FUNCTION(svn_log)
 {
