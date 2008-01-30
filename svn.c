@@ -632,6 +632,8 @@ PHP_MINFO_FUNCTION(svn)
 PHP_FUNCTION(svn_checkout)
 {
 	char *repos_url = NULL, *target_path = NULL;
+	const char *utf8_repos_url = NULL, *utf8_target_path = NULL;
+	const char *can_repos_url = NULL, *can_target_path = NULL;
 	int repos_url_len, target_path_len;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 };
@@ -651,12 +653,20 @@ PHP_FUNCTION(svn_checkout)
 		RETURN_FALSE;
 	}
 	
+	
+	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_target_path, target_path, subpool);
+			
+	can_repos_url= svn_path_canonicalize(utf8_repos_url, subpool);		
+	can_target_path = svn_path_canonicalize(utf8_target_path, subpool);		
+	
+	
 	revision.kind = php_svn_get_revision_kind(revision);
 	peg_revision.kind = svn_opt_revision_unspecified;
 	
 	err = svn_client_checkout2 (NULL,
-			repos_url,
-			target_path,
+			can_repos_url,
+			can_target_path,
 			&peg_revision,
 			&revision,
 			!(flags & SVN_NON_RECURSIVE), 
@@ -1091,6 +1101,8 @@ PHP_FUNCTION(svn_diff)
 	apr_file_t *outfile = NULL, *errfile = NULL;
 	svn_error_t *err;
 	char *path1, *path2;
+	const char *utf8_path1 = NULL,*utf8_path2 = NULL; 
+	const char *can_path1 = NULL,*can_path2 = NULL; 
 	int path1len, path2len;
 	long rev1 = -1, rev2 = -1;
 	apr_array_header_t diff_options = { 0, 0, 0, 0, 0};
@@ -1136,9 +1148,15 @@ PHP_FUNCTION(svn_diff)
 			APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE,
 			SVN_G(pool));
 
+	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+			
+	can_path1= svn_path_canonicalize(utf8_path1, subpool);		
+	can_path2= svn_path_canonicalize(utf8_path2, subpool);					
+			
 	err = svn_client_diff(&diff_options,
-			path1, &revision1,
-			path2, &revision2,
+			can_path1, &revision1,
+			can_path2, &revision2,
 			1,
 			0,
 			0,
