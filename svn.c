@@ -16,6 +16,7 @@
   |          Wez Furlong <wez@omniti.com>                                |
   |          Luca Furini <lfurini@cs.unibo.it>                           |
   |          Jerome Renard <jerome.renard_at_gmail.com>                  |
+  |          Develar <develar_at_gmail.com>                              |
   +----------------------------------------------------------------------+
 */
 
