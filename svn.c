@@ -22,7 +22,7 @@
 
 /* $Id$ */
 
-#define SVN_EXTENSION_VERSION "0.2.0"
+#define SVN_EXTENSION_VERSION "0.3.0"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
