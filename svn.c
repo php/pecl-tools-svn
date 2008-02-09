@@ -693,7 +693,8 @@ PHP_FUNCTION(svn_checkout)
 PHP_FUNCTION(svn_cat)
 {
 	char *url = NULL;
-	int url_len, revision_no = -1, size;
+	int url_len, revision_no = -1;
+	apr_size_t size;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 } ;
 	svn_stream_t *out = NULL;
