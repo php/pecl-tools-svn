@@ -29,7 +29,7 @@ if test "$PHP_SVN" != "no"; then
 		AC_MSG_ERROR([failed to find svn_client.h])
 	fi
 
-	dnl check SVN version, we need at least 1.2
+	dnl check SVN version, we need at least 1.4
 
 	for i in $PHP_SVN_APR $PHP_SVN /usr/local /usr /opt /sw; do
 		dnl APR 1.0 tests

@@ -47,6 +47,31 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
     <notes>
+	Backward Compatibilty Breaks:
+	Minimum subversion version is 1.4.
+	svn_status call arguments have changed - it now uses Flags.
+	
+	New Constants:
+	
+	SVN_REVISION_INITIAL
+	SVN_REVISION_HEAD
+	SVN_REVISION_BASE
+	SVN_REVISION_COMMITTED
+	SVN_REVISION_PREV
+	
+	SVN_NON_RECURSIVE
+	SVN_DISCOVER_CHANGED_PATHS
+	SVN_OMIT_MESSAGES
+	SVN_STOP_ON_COPY
+	SVN_ALL
+	SVN_SHOW_UPDATES
+	SVN_NO_IGNORE
+	
+	All constants are also available as Svn::REVISON_HEAD.
+	
+	Win32 Compatibility:
+	Most functions have been fixed to work with Win32 paths.
+
 	- Fix bug #11153 - svn diff uses utf8 paths
 	- Fix bug #11157 - missing constants needed for svn_status
 	- Rewrite configure script to find APR and its compile flags
