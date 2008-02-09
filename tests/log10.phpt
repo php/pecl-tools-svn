@@ -5,9 +5,9 @@ Svn::log() --revision ARG[:ARG] (depends on the Svn::checkout()) (working copy u
 
 $wc_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . 'wc';
 Svn::checkout('file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r', $wc_path);
-var_dump(Svn::log($wc_path, SvnRevision::BASE, SvnRevision::PREV));
-var_dump(Svn::log($wc_path, SvnRevision::BASE, SvnRevision::COMMITTED));
-var_dump(Svn::log($wc_path, SvnRevision::BASE));
+var_dump(Svn::log($wc_path, Svn::BASE, Svn::PREV));
+var_dump(Svn::log($wc_path, Svn::BASE, Svn::COMMITTED));
+var_dump(Svn::log($wc_path, Svn::BASE));
 
 ?>
 --CLEAN--

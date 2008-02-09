@@ -7,7 +7,7 @@ function get_cat($url)
 {
 	ob_start();
 	var_dump(Svn::cat($url));
-	var_dump(Svn::cat($url, SvnRevision::HEAD));
+	var_dump(Svn::cat($url, Svn::HEAD));
 	var_dump(Svn::cat($url, 1));
 	return ob_get_clean();
 }
@@ -23,11 +23,11 @@ Svn::checkout($repository_url, $wc_path);
 $url = $wc_path . DIRECTORY_SEPARATOR . $filename;
 var_dump(get_cat($url) === $repository_result);
 
-var_dump(Svn::cat($url, SvnRevision::BASE));
+var_dump(Svn::cat($url, Svn::BASE));
 
 /* Warning: Svn::cat(): svn error(s) occured 195012 (Two versioned resources are unrelated) Unable to find repository location for '/home/develar/pecl_svn/tests/wc/renamed_test' in revision 3 in /home/develar/pecl_svn/tests/cat.phpt on line 27 */
 ini_set('error_reporting', 0);
-var_dump(Svn::cat($url, SvnRevision::PREV));
+var_dump(Svn::cat($url, Svn::PREV));
 
 ?>
 --CLEAN--

@@ -4,13 +4,13 @@ Svn::log() --revision ARG[:ARG] (depends on the Svn::checkout()) (repository url
 <?php
 
 $url = 'file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r' . DIRECTORY_SEPARATOR . 'renamed_test';
-var_dump(Svn::log($url, SvnRevision::HEAD));
-var_dump(Svn::log($url, SvnRevision::HEAD, 2));
-var_dump(Svn::log($url, 2, SvnRevision::HEAD));
+var_dump(Svn::log($url, Svn::HEAD));
+var_dump(Svn::log($url, Svn::HEAD, 2));
+var_dump(Svn::log($url, 2, Svn::HEAD));
 var_dump(Svn::log($url,4, 2));
 var_dump(Svn::log($url, 4));
-var_dump(Svn::log($url, 4, SvnRevision::INITIAL));
-var_dump(Svn::log($url, 4, 0)); // use SvnRevision::INITIAL, not magic number. it is only a test
+var_dump(Svn::log($url, 4, Svn::INITIAL));
+var_dump(Svn::log($url, 4, 0)); // use Svn::INITIAL, not magic number. it is only a test
 
 ?>
 --EXPECT--

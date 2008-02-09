@@ -4,8 +4,8 @@ Svn::log() --revision ARG:ARG --quiet
 <?php
 
 $url = 'file://' . dirname(__FILE__) . DIRECTORY_SEPARATOR . 'r' . DIRECTORY_SEPARATOR . 'renamed_test';
-var_dump(Svn::log($url, SvnRevision::HEAD, SvnRevision::INITIAL, null, Svn::OMIT_MESSAGES));
-var_dump(Svn::log($url, SvnRevision::HEAD, 0, null, Svn::OMIT_MESSAGES)); // use SvnRevision::INITIAL, not magic number. it is only a test
+var_dump(Svn::log($url, Svn::HEAD, Svn::INITIAL, null, Svn::OMIT_MESSAGES));
+var_dump(Svn::log($url, Svn::HEAD, 0, null, Svn::OMIT_MESSAGES)); // use Svn::INITIAL, not magic number. it is only a test
 
 ?>
 --EXPECT--
