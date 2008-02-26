@@ -33,10 +33,10 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    <date>2008-02-09</date>
+    <date>2008-??-??</date>
 	<version>
-		<release>0.3</release>
-		<api>0.3</api>
+		<release>0.4</release>
+		<api>0.4</api>
 	</version>
 
 	<stability>
@@ -47,42 +47,8 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
     <notes>
-	Backward Compatibilty Breaks:
-	Minimum subversion version is 1.4.
-	svn_status call arguments have changed - it now uses Flags.
-	
-	New Constants:
-	
-	SVN_REVISION_INITIAL
-	SVN_REVISION_HEAD
-	SVN_REVISION_BASE
-	SVN_REVISION_COMMITTED
-	SVN_REVISION_PREV
-	
-	SVN_NON_RECURSIVE
-	SVN_DISCOVER_CHANGED_PATHS
-	SVN_OMIT_MESSAGES
-	SVN_STOP_ON_COPY
-	SVN_ALL
-	SVN_SHOW_UPDATES
-	SVN_NO_IGNORE
-	
-	All constants are also available as Svn::REVISON_HEAD.
-	
-	Win32 Compatibility:
-	Most functions have been fixed to work with Win32 paths.
-
-	- Fix bug #11153 - svn diff uses utf8 paths
-	- Fix bug #11157 - missing constants needed for svn_status
-	- Rewrite configure script to find APR and its compile flags
-	- Add support for svn_info() - patch by Marco Tabini
-	- Add support for svn_export() - patch by Scott MacVicar
-	- Add support for svn_copy() and svn_switch() - patch by Conny Dahlgren
-	- Add support for svn_blame() / svn_revert() - patch by Jerome Renard
-	- Add support for limiting results with svn_log() - patch by Edward Z. Yang
-	- Add support for limiting svn_checkout() - patch by Devlar
-	- Add constants for use as parameters to svn_cat() - patch by Devlar
-	- Add an OO interface to the extension - patch by Devlar
+	- Add support for svn_delete()
+	- Allow svn_commit() to take a string as a patch
     </notes>
   <!-- /RELEASE SECTION -->
 
@@ -121,6 +87,56 @@
  	</extsrcrelease>
 
 	<changelog>
+		<release>
+			<version>
+				<release>0.3</release>
+				<api>0.3</api>
+			</version>
+			<stability>
+				<release>beta</release>
+				<api>beta</api>
+			</stability>
+	    		<date>2008-02-09</date>
+			<license uri="http://www.php.net/licence">PHP Licence</license>
+		    <notes>
+			Backward Compatibilty Breaks:
+			Minimum subversion version is 1.4.
+			svn_status call arguments have changed - it now uses Flags.
+
+			New Constants:
+
+			SVN_REVISION_INITIAL
+			SVN_REVISION_HEAD
+			SVN_REVISION_BASE
+			SVN_REVISION_COMMITTED
+			SVN_REVISION_PREV
+
+			SVN_NON_RECURSIVE
+			SVN_DISCOVER_CHANGED_PATHS
+			SVN_OMIT_MESSAGES
+			SVN_STOP_ON_COPY
+			SVN_ALL
+			SVN_SHOW_UPDATES
+			SVN_NO_IGNORE
+
+			All constants are also available as Svn::REVISON_HEAD.
+
+			Win32 Compatibility:
+			Most functions have been fixed to work with Win32 paths.
+
+			- Fix bug #11153 - svn diff uses utf8 paths
+			- Fix bug #11157 - missing constants needed for svn_status
+			- Rewrite configure script to find APR and its compile flags
+			- Add support for svn_info() - patch by Marco Tabini
+			- Add support for svn_export() - patch by Scott MacVicar
+			- Add support for svn_copy() and svn_switch() - patch by Conny Dahlgren
+			- Add support for svn_blame() / svn_revert() - patch by Jerome Renard
+			- Add support for limiting results with svn_log() - patch by Edward Z. Yang
+			- Add support for limiting svn_checkout() - patch by Devlar
+			- Add constants for use as parameters to svn_cat() - patch by Devlar
+			- Add an OO interface to the extension - patch by Devlar
+		    </notes>
+		</release>
 		<release>
 			<version>
 				<release>0.2</release>

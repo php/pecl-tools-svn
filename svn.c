@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2005 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.0 of the PHP license,       |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 
 /* $Id$ */
 
-#define SVN_EXTENSION_VERSION "0.3.0"
+#define SVN_EXTENSION_VERSION "0.4.0-dev"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -152,6 +152,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_copy, NULL)
 	PHP_FE(svn_switch, NULL)
 	PHP_FE(svn_blame, NULL)
+	PHP_FE(svn_delete, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -2104,6 +2105,53 @@ PHP_FUNCTION(svn_blame)
 }
 /* }}} */
 
+/* {{{ proto mixed svn_delete(string path [,bool force = true])
+	Delete a file from a repository
+   */
+PHP_FUNCTION(svn_delete)
+{
+	const char *path = NULL, *utf8_path = NULL;
+	int pathlen;
+	apr_pool_t *subpool;
+	zend_bool force = 0;
+	svn_error_t *err;
+	svn_commit_info_t *info = NULL;
+	apr_array_header_t *targets;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
+					&path, &pathlen, &force)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	targets = apr_array_make (subpool, 1, sizeof(char *));
+
+	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
+	err = svn_client_delete2(&info, targets, force, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else if (info) {
+		array_init(return_value);
+		add_next_index_long(return_value, info->revision);
+		add_next_index_string(return_value, (char*)info->date, 1);
+		add_next_index_string(return_value, (char*)info->author, 1);
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
 
 /* {{{ proto resource svn_repos_create(string path [, array config [, array fsconfig]])
    Create a new subversion repository at path */
@@ -2251,8 +2299,8 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
    Sends changes from the local working copy to the repository */
 PHP_FUNCTION(svn_commit)
 {
-	char *log;
-	int loglen;
+	char *log, *path = NULL;
+	int loglen, pathlen;
 	zend_bool dontrecurse = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
@@ -2260,9 +2308,12 @@ PHP_FUNCTION(svn_commit)
 	zval *targets = NULL;
 	apr_array_header_t *targets_array;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
-				&log, &loglen, &targets, &dontrecurse)) {
-		return;
+	if (FAILURE == zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
+				&log, &loglen, &path, &pathlen, &dontrecurse)) {
+		if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
+					&log, &loglen, &targets, &dontrecurse)) {
+			return;
+		}
 	}
 
 	init_svn_client(TSRMLS_C);
@@ -2273,7 +2324,12 @@ PHP_FUNCTION(svn_commit)
 
 	SVN_G(ctx)->log_msg_baton = log;
 
-	targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
+	if (path) {
+		targets_array = apr_array_make (subpool, 1, sizeof(char *));
+		APR_ARRAY_PUSH(targets_array, const char *) = path;
+	} else {
+		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
+	}
 	
 	err = svn_client_commit(&info, targets_array, dontrecurse, SVN_G(ctx), subpool);
 	SVN_G(ctx)->log_msg_baton = NULL;

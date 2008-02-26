@@ -68,6 +68,7 @@ PHP_FUNCTION(svn_export);
 PHP_FUNCTION(svn_copy);
 PHP_FUNCTION(svn_switch);
 PHP_FUNCTION(svn_blame);
+PHP_FUNCTION(svn_delete);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
@@ -114,9 +115,6 @@ PHP_FUNCTION(svn_uuid_from_url);
 PHP_FUNCTION(svn_uuid_from_path);
 
 PHP_FUNCTION(svn_mkdir);
-PHP_FUNCTION(svn_delete);
-
-
 
 /** constants **/
 
