@@ -41,6 +41,7 @@
 #include "svn_fs.h"
 #include "svn_repos.h"
 #include "svn_utf.h"
+#include "svn_time.h"
 
 /* If you declare any globals in php_svn.h uncomment this: */
 ZEND_DECLARE_MODULE_GLOBALS(svn)
@@ -301,7 +302,6 @@ static svn_error_t *php_svn_get_commit_log(const char **log_msg, const char **tm
 static void init_svn_client(TSRMLS_D)
 {
 	svn_error_t *err;
-	svn_boolean_t store_password_val = TRUE;
 	svn_auth_provider_object_t *provider;
 	svn_auth_baton_t *ab;
 	apr_array_header_t *providers;
@@ -694,7 +694,7 @@ PHP_FUNCTION(svn_checkout)
 PHP_FUNCTION(svn_cat)
 {
 	char *url = NULL;
-	int url_len, revision_no = -1;
+	int url_len;
 	apr_size_t size;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 } ;
@@ -771,12 +771,9 @@ cleanup:
 PHP_FUNCTION(svn_ls)
 {
 	char *repos_url = NULL;
-	int repos_url_len, size, revision_no = -1;
+	int repos_url_len,  revision_no = -1;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
-	svn_stream_t *out;
-	svn_stringbuf_t *buf;
-	char *retdata =NULL;
 	apr_hash_t *dirents;
 	apr_array_header_t *array;
 	int i;
@@ -883,8 +880,6 @@ php_svn_log_receiver (	void *ibaton,
 {
 	struct php_svn_log_receiver_baton *baton = (struct php_svn_log_receiver_baton*) ibaton;
 	zval  *row, *paths;
-	char *path;
-	apr_hash_index_t *hi;
 	apr_array_header_t *sorted_paths;
 	int i;
 	TSRMLS_FETCH();
@@ -961,7 +956,6 @@ PHP_FUNCTION(svn_log)
 	svn_opt_revision_t 	start_revision = { 0 }, end_revision = { 0 };
  
 	apr_array_header_t *targets;
-	const char *target;
  
 	apr_pool_t *subpool;
 	long limit = 0;
@@ -1272,7 +1266,7 @@ PHP_FUNCTION(svn_revert)
 /* {{{ proto bool svn_resolved(string path[, bool recursive = false]) */
 PHP_FUNCTION(svn_resolved)
 {
-	const char *path = NULL, *utf8_path = NULL, *target = NULL;
+	const char *path = NULL, *utf8_path = NULL;
 	long pathlen;
 	zend_bool recursive = 0;
 	svn_error_t *err;
@@ -1384,9 +1378,7 @@ PHP_FUNCTION(svn_fs_youngest_rev)
 {
 	zval *zfs;
 	struct php_svn_fs *fs;
-	svn_fs_root_t *root;
 	svn_error_t *err;
-	struct php_svn_fs_root *resource;
 	svn_revnum_t revnum;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -1497,9 +1489,7 @@ PHP_FUNCTION(svn_fs_file_contents)
 	struct php_svn_fs_root *fsroot;
 	char *path;
 	int pathlen;
-	svn_filesize_t len;
 	svn_error_t *err;
-	apr_pool_t *subpool;
 	svn_stream_t *svnstm;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
@@ -1569,7 +1559,6 @@ PHP_FUNCTION(svn_fs_node_prop)
 	int pathlen, propnamelen;
 	svn_error_t *err;
 	apr_pool_t *subpool;
-	svn_revnum_t rev;
 	svn_string_t *val;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rss",
@@ -1835,7 +1824,6 @@ PHP_FUNCTION(svn_info)
 	apr_pool_t *subpool;
 	zend_bool recurse = 1;
 	svn_error_t *err;
-	svn_revnum_t result_rev;
 	svn_opt_revision_t rev;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
@@ -2453,7 +2441,6 @@ PHP_FUNCTION(svn_status)
 	char *path;
 	int path_len;
 	long flags = 0;
-	zend_bool recurse = 1, get_all = 0, update = 0, no_ignore = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 	svn_revnum_t result_revision;
@@ -2748,7 +2735,6 @@ PHP_FUNCTION(svn_fs_apply_text)
 	int path_len;
 	svn_error_t *err;
 	svn_stream_t *stream_p = NULL;
-	struct php_svn_stream *stream = NULL;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
