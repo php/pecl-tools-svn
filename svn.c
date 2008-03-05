@@ -965,7 +965,7 @@ PHP_FUNCTION(svn_log)
  
 	apr_pool_t *subpool;
 	long limit = 0;
-	long flags = 0;
+	long flags = SVN_DISCOVER_CHANGED_PATHS | SVN_STOP_ON_COPY;
 	struct php_svn_log_receiver_baton baton;
  	
 	start_revision.value.number == svn_opt_revision_unspecified;
