@@ -962,8 +962,8 @@ PHP_FUNCTION(svn_log)
 	long flags = SVN_DISCOVER_CHANGED_PATHS | SVN_STOP_ON_COPY;
 	struct php_svn_log_receiver_baton baton;
  	
-	start_revision.value.number == svn_opt_revision_unspecified;
-	end_revision.value.number == svn_opt_revision_unspecified;
+	start_revision.value.number = svn_opt_revision_unspecified;
+	end_revision.value.number = svn_opt_revision_unspecified;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|llll", 
 			&url, &url_len,
