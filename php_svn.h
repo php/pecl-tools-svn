@@ -15,7 +15,7 @@
   | Authors: Alan Knowles <alan@akbkhome.com>                            |
   |          Wez Furlong <wez@omniti.com>                                |
   |          Luca Furini <lfurini@cs.unibo.it>                           |
-  |          Jerome Renard <jerome.renard_at_gmail.com>                  |  
+  |          Jerome Renard <jerome.renard_at_gmail.com>                  |
   |          Develar <develar_at_gmail.com>                              |
   +----------------------------------------------------------------------+
 */
@@ -70,6 +70,7 @@ PHP_FUNCTION(svn_switch);
 PHP_FUNCTION(svn_blame);
 PHP_FUNCTION(svn_delete);
 PHP_FUNCTION(svn_mkdir);
+PHP_FUNCTION(svn_move);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
@@ -105,7 +106,6 @@ PHP_FUNCTION(svn_fs_abort_txn);
 
 
 PHP_FUNCTION(svn_merge);
-PHP_FUNCTION(svn_move);
 PHP_FUNCTION(svn_propset);
 PHP_FUNCTION(svn_propget);
 PHP_FUNCTION(svn_proplist);
@@ -130,7 +130,7 @@ PHP_FUNCTION(svn_uuid_from_path);
 #define SVN_SHOW_UPDATES 32 /* --show-updates */
 #define SVN_NO_IGNORE 64 /* --no-ignore */
 #define SVN_IGNORE_EXTERNALS 128 /* --ignore-externals */
-  
+
 
 
 
