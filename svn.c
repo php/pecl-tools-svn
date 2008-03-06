@@ -154,6 +154,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_switch, NULL)
 	PHP_FE(svn_blame, NULL)
 	PHP_FE(svn_delete, NULL)
+	PHP_FE(svn_mkdir, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -2124,6 +2125,54 @@ PHP_FUNCTION(svn_delete)
 
 	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
 	err = svn_client_delete2(&info, targets, force, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else if (info) {
+		array_init(return_value);
+		add_next_index_long(return_value, info->revision);
+		add_next_index_string(return_value, (char*)info->date, 1);
+		add_next_index_string(return_value, (char*)info->author, 1);
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto mixed svn_mkdir(string path)
+	Creates a directory in a working copy or repository
+   */
+PHP_FUNCTION(svn_mkdir)
+{
+	const char *path = NULL, *utf8_path = NULL;
+	int pathlen;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	svn_commit_info_t *info = NULL;
+	apr_array_header_t *targets;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
+					&path, &pathlen)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	targets = apr_array_make (subpool, 1, sizeof(char *));
+
+	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
+
+	err = svn_client_mkdir2(&info, targets, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);

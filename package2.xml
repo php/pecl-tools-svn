@@ -47,7 +47,7 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
     <notes>
-	- Add support for svn_delete()
+	- Add support for svn_delete() and svn_mkdir()
 	- Allow svn_commit() to take a string as a patch
     </notes>
   <!-- /RELEASE SECTION -->
