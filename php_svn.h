@@ -71,6 +71,8 @@ PHP_FUNCTION(svn_blame);
 PHP_FUNCTION(svn_delete);
 PHP_FUNCTION(svn_mkdir);
 PHP_FUNCTION(svn_move);
+PHP_FUNCTION(svn_proplist);
+PHP_FUNCTION(svn_propget);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
@@ -107,8 +109,6 @@ PHP_FUNCTION(svn_fs_abort_txn);
 
 PHP_FUNCTION(svn_merge);
 PHP_FUNCTION(svn_propset);
-PHP_FUNCTION(svn_propget);
-PHP_FUNCTION(svn_proplist);
 PHP_FUNCTION(svn_url_from_path);
 PHP_FUNCTION(svn_uuid_from_url);
 PHP_FUNCTION(svn_uuid_from_path);

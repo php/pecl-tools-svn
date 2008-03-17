@@ -156,6 +156,8 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_delete, NULL)
 	PHP_FE(svn_mkdir, NULL)
 	PHP_FE(svn_move, NULL)
+	PHP_FE(svn_proplist, NULL)
+	PHP_FE(svn_propget, NULL)
 	PHP_FE(svn_repos_create, NULL)
 	PHP_FE(svn_repos_recover, NULL)
 	PHP_FE(svn_repos_hotcopy, NULL)
@@ -1821,7 +1823,7 @@ static svn_error_t *info_func (void *baton, const char *path, const svn_info_t *
 
 PHP_FUNCTION(svn_info)
 {
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int pathlen;
 	apr_pool_t *subpool;
 	zend_bool recurse = 1;
@@ -1839,6 +1841,9 @@ PHP_FUNCTION(svn_info)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	array_init(return_value);
 	rev.kind = svn_opt_revision_head;
@@ -1858,7 +1863,8 @@ PHP_FUNCTION(svn_info)
    Exports a clean directory tree from the repository specified into the path provided */
 PHP_FUNCTION(svn_export)
 {
-	char *from, *to;
+	const char *from = NULL, *to = NULL;
+	const char *utf8_from_path = NULL, *utf8_to_path = NULL;
 	int fromlen, tolen;
 	apr_pool_t *subpool;
 	zend_bool working_copy = 1;
@@ -1876,6 +1882,12 @@ PHP_FUNCTION(svn_export)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_from_path, from, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_to_path, to, subpool);
+
+	from = svn_path_canonicalize(utf8_from_path, subpool);
+	to = svn_path_canonicalize(utf8_to_path, subpool);
 
 	if (working_copy) {
 		revision.kind = svn_opt_revision_working;
@@ -2234,6 +2246,134 @@ PHP_FUNCTION(svn_move)
 		add_next_index_string(return_value, (char*)info->author, 1);
 	} else {
 		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto mixed svn_proplist(string path [,bool recurse])
+	Move paths in a working copy or repository
+   */
+PHP_FUNCTION(svn_proplist)
+{
+	const char *path = NULL, *utf8_path = NULL;
+	int pathlen;
+	zend_bool recurse = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	apr_array_header_t *props;
+	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 };
+	int i = 0;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
+					&path, &pathlen, &recurse)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	utf8_path = svn_path_canonicalize(utf8_path, subpool);
+
+	err = svn_client_proplist2(&props, utf8_path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+
+		array_init(return_value);
+
+		for (i = 0; i < props->nelts; ++i) {
+			svn_client_proplist_item_t *item
+                = ((svn_client_proplist_item_t **)props->elts)[i];
+			zval *row;
+			apr_hash_index_t *hi;
+
+			MAKE_STD_ZVAL(row);
+			array_init(row);
+			for (hi = apr_hash_first(subpool, item->prop_hash); hi; hi = apr_hash_next(hi)) {
+				const void *key;
+				void *val;
+				const char *pname;
+				svn_string_t *propval;
+
+				apr_hash_this(hi, &key, NULL, &val);
+				pname = key;
+				propval = val;
+
+				add_assoc_stringl(row, (char *)pname, (char *)propval->data, propval->len, 1);
+			}
+			add_assoc_zval(return_value, (char *)svn_path_local_style(item->node_name->data, subpool), row);
+		}
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto mixed svn_propget(string path, string property_name [,bool recurse])
+	Move paths in a working copy or repository
+   */
+PHP_FUNCTION(svn_propget)
+{
+	const char *path = NULL, *utf8_path = NULL;
+	const char *propname = NULL;
+	int pathlen, propnamelen;
+	zend_bool recurse = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	apr_hash_t *props;
+	svn_opt_revision_t revision = { 0 }, peg_revision = { 0 };
+	apr_hash_index_t *hi;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
+					&path, &pathlen, &propname, &propnamelen, &recurse)) {
+		return;
+	}
+
+	init_svn_client(TSRMLS_C);
+	subpool = svn_pool_create(SVN_G(pool));
+
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	utf8_path = svn_path_canonicalize(utf8_path, subpool);
+
+	err = svn_client_propget2(&props, propname, utf8_path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+
+		array_init(return_value);
+		for (hi = apr_hash_first(subpool, props); hi; hi = apr_hash_next(hi)) {
+			const void *key;
+			void *val;
+			const char *pname;
+			svn_string_t *propval;
+			zval *row;
+
+			MAKE_STD_ZVAL(row);
+			array_init(row);
+			apr_hash_this(hi, &key, NULL, &val);
+			pname = key;
+			propval = val;
+
+			add_assoc_stringl(row, (char *)propname, (char *)propval->data, propval->len, 1);
+			add_assoc_zval(return_value, (char *)svn_path_local_style(pname, subpool), row);
+		}
 	}
 
 	svn_pool_destroy(subpool);
