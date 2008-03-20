@@ -48,6 +48,12 @@ ZEND_DECLARE_MODULE_GLOBALS(svn)
 
 /* custom property for ignoring SSL cert verification errors */
 #define PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS "php:svn:auth:ignore-ssl-verify-errors"
+#define PHP_SVN_INIT_CLIENT() \
+	if (init_svn_client(TSRMLS_C)) {\
+		RETURN_FALSE;\
+	}
+
+
 static void php_svn_get_version(char *buf, int buflen);
 
 /* True global resources - no need for thread safety here */
@@ -303,25 +309,29 @@ static svn_error_t *php_svn_get_commit_log(const char **log_msg, const char **tm
 	return SVN_NO_ERROR;
 }
 
-static void init_svn_client(TSRMLS_D)
+static int init_svn_client(TSRMLS_D)
 {
 	svn_error_t *err;
 	svn_auth_provider_object_t *provider;
 	svn_auth_baton_t *ab;
 	apr_array_header_t *providers;
 
-	if (SVN_G(pool)) return;
+	if (SVN_G(pool)) return 0;
 
 	SVN_G(pool) = svn_pool_create(NULL);
 
 	if ((err = svn_client_create_context (&SVN_G(ctx), SVN_G(pool)))) {
 		php_svn_handle_error(err TSRMLS_CC);
-		return;
+		svn_pool_destroy(SVN_G(pool));
+		SVN_G(pool) = NULL;
+		return 1;
 	}
 
 	if ((err = svn_config_get_config(&SVN_G(ctx)->config, NULL, SVN_G(pool)))) {
 		php_svn_handle_error(err TSRMLS_CC);
-		return;
+		svn_pool_destroy(SVN_G(pool));
+		SVN_G(pool) = NULL;
+		return 1;
 	}
 
 	SVN_G(ctx)->log_msg_func = php_svn_get_commit_log;
@@ -359,6 +369,8 @@ static void init_svn_client(TSRMLS_D)
 	/* turn off storing passwords */
 	svn_auth_set_parameter(ab, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
 	SVN_G(ctx)->auth_baton = ab;
+
+	return 0;
 }
 
 /* {{{ proto string svn_auth_get_parameter(string key)
@@ -373,7 +385,7 @@ PHP_FUNCTION(svn_auth_get_parameter)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 
 	value = svn_auth_get_parameter(SVN_G(ctx)->auth_baton, key);
 	if (value) {
@@ -393,7 +405,7 @@ PHP_FUNCTION(svn_auth_set_parameter)
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &key, &keylen, &value, &valuelen)) {
 		return;
 	}
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
 }
@@ -418,7 +430,7 @@ PHP_FUNCTION(svn_import)
 		RETURN_FALSE;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
@@ -653,7 +665,7 @@ PHP_FUNCTION(svn_checkout)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -714,7 +726,7 @@ PHP_FUNCTION(svn_cat)
 		&url, &url_len, &revision.value.number) == FAILURE) {
 		return;
 	}
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -787,7 +799,7 @@ PHP_FUNCTION(svn_ls)
 			&repos_url, &repos_url_len, &revision_no) == FAILURE) {
 		return;
 	}
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -975,7 +987,7 @@ PHP_FUNCTION(svn_log)
 			&limit,  &flags) == FAILURE) {
 		return;
 	}
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1112,7 +1124,7 @@ PHP_FUNCTION(svn_diff)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1205,7 +1217,7 @@ PHP_FUNCTION(svn_cleanup)
 		RETURN_FALSE;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1237,7 +1249,7 @@ PHP_FUNCTION(svn_revert)
 		RETURN_FALSE;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1280,7 +1292,7 @@ PHP_FUNCTION(svn_resolved)
 		RETURN_FALSE;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1753,7 +1765,7 @@ PHP_FUNCTION(svn_repos_open)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -1835,7 +1847,7 @@ PHP_FUNCTION(svn_info)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -1876,7 +1888,7 @@ PHP_FUNCTION(svn_export)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -1926,7 +1938,7 @@ PHP_FUNCTION(svn_switch)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -1969,7 +1981,7 @@ PHP_FUNCTION(svn_copy)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2062,7 +2074,7 @@ PHP_FUNCTION(svn_blame)
 		RETURN_FALSE;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2125,7 +2137,7 @@ PHP_FUNCTION(svn_delete)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2172,7 +2184,7 @@ PHP_FUNCTION(svn_mkdir)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2221,7 +2233,7 @@ PHP_FUNCTION(svn_move)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2271,7 +2283,7 @@ PHP_FUNCTION(svn_proplist)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2339,7 +2351,7 @@ PHP_FUNCTION(svn_propget)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 
 	if (!subpool) {
@@ -2400,7 +2412,7 @@ PHP_FUNCTION(svn_repos_create)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2442,7 +2454,7 @@ PHP_FUNCTION(svn_repos_recover)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2476,7 +2488,7 @@ PHP_FUNCTION(svn_repos_hotcopy)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2543,7 +2555,7 @@ PHP_FUNCTION(svn_commit)
 		}
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2593,7 +2605,7 @@ PHP_FUNCTION(svn_add)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2690,7 +2702,7 @@ PHP_FUNCTION(svn_status)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
@@ -2742,7 +2754,7 @@ PHP_FUNCTION(svn_update)
 		return;
 	}
 
-	init_svn_client(TSRMLS_C);
+	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
 		RETURN_FALSE;
