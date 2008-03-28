@@ -17,11 +17,7 @@ if test "$PHP_SVN" != "no"; then
 	for i in $PHP_SVN /usr/local /usr /opt /sw; do
 		if test -r $i/include/subversion-1/svn_client.h ; then
 			PHP_SVN_INCLUDES="-I$i/include/subversion-1"
-			PHP_SVN_LDFLAGS="-L$i/lib"
-			if test -d $i/lib64 ; then
-			PHP_SVN_LDFLAGS="-L$i/lib64"
-			fi
-			PHP_SVN_LDFLAGS="-lsvn_client-1"
+			PHP_SVN_LDFLAGS="-lsvn_client-1 -lsvn_fs-1 -lsvn_repos-1 -lsvn_subr-1"
 			break;
 		fi
 	done
