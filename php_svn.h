@@ -28,6 +28,8 @@
 extern zend_module_entry svn_module_entry;
 #define phpext_svn_ptr &svn_module_entry
 
+#define PHP_SVN_VERSION "0.4.0-dev"
+
 #ifdef PHP_WIN32
 #define PHP_SVN_API __declspec(dllexport)
 #else
