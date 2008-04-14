@@ -24,7 +24,9 @@ class Subversion_CopyCommit {
             $this->repos = 'file://'. $this->repos;
         }
         $this->rev = (int) $this->rev;
-        $ar = svn_log($this->repos, $this->rev);
+        $ar = svn_log($this->repos, $this->rev,  $this->rev-1, 0, SVN_DISCOVER_CHANGED_PATHS);
+        
+        
         //print_R($ar);
         foreach($ar[0]['paths'] as $action) {
             $this->processAction($action);

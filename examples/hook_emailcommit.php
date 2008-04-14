@@ -40,7 +40,7 @@ class Subversion_EmailCommit {
         $svn = System::which('svn','/usr/bin/svn');
         
         $cmd = "$svn diff -r{$last}:{$this->rev} $this->repos";
-        $this->log = svn_log($this->repos, $this->rev);
+        $this->log = svn_log($this->repos, $this->rev,  $this->rev-1, 0, SVN_DISCOVER_CHANGED_PATHS);
         
         $syntax = $this->checkSyntax();
         //echo $cmd;
@@ -64,6 +64,7 @@ class Subversion_EmailCommit {
             $this->getFilenames() . " ({$this->rev})";
             
         $headers['Date']    = date('r');
+        $headers['X-Mailer']  = 'svn hook';
         // Create the mail object using the Mail::factory method
         require_once 'Mail.php';
         $mail_object =& Mail::factory('smtp', $params);
