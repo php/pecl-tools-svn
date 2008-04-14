@@ -25,8 +25,10 @@ if (PHP_SVN != "no") {
 			CHECK_LIB("intl3_svn.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr;" + PHP_SVN) &&
 			CHECK_LIB("libdb43.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr;" + PHP_SVN) &&
 			CHECK_LIB("libneon.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\neon;" + PHP_SVN) &&
-			CHECK_LIB("libapr.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr;" + PHP_SVN) &&
-			CHECK_LIB("libaprutil.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr-util;" + PHP_SVN) &&
+			(CHECK_LIB("libapr.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr;" + PHP_SVN) ||
+				CHECK_LIB("libapr-1.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr;" + PHP_SVN)) &&
+			(CHECK_LIB("libaprutil.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr-util;" + PHP_SVN) ||
+				CHECK_LIB("libaprutil-1.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr-util;" + PHP_SVN)) &&
 			CHECK_LIB("xml.lib", "svn", PHP_PHP_BUILD + "\\lib\\svn\\apr-util;" + PHP_SVN)
 			) {
 		EXTENSION("svn", "svn.c");
