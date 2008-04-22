@@ -2064,8 +2064,8 @@ PHP_FUNCTION(svn_blame)
 			start_revision = { 0 },
 			end_revision = { 0 },
 			peg_revision;
-	svn_diff_file_options_t diff_options;
-	svn_boolean_t ignore_mime_type = TRUE;
+	/*svn_diff_file_options_t diff_options;
+	svn_boolean_t ignore_mime_type = TRUE;*/
 	apr_pool_t *subpool;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &repos_url, &repos_url_len, &revision) == FAILURE) {
@@ -2091,18 +2091,18 @@ PHP_FUNCTION(svn_blame)
 		end_revision.value.number = revision ;
 	}
 	peg_revision.kind = svn_opt_revision_unspecified;
-	diff_options.ignore_space = svn_diff_file_ignore_space_none;
-	diff_options.ignore_eol_style = FALSE;
+	/*diff_options.ignore_space = svn_diff_file_ignore_space_none;
+	diff_options.ignore_eol_style = FALSE;*/
 
 	array_init(return_value);
 
-	err = svn_client_blame3(
+	err = svn_client_blame2(
 			repos_url,
 			&peg_revision,
 			&start_revision,
 			&end_revision,
-			&diff_options,
-			ignore_mime_type,
+			/*&diff_options,
+			ignore_mime_type,*/
 			php_svn_blame_message_receiver,
 			(void *) return_value,
 			SVN_G(ctx),
