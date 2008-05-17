@@ -1994,7 +1994,7 @@ PHP_FUNCTION(svn_copy)
 
 	SVN_G(ctx)->log_msg_baton = log;
 
-	err = svn_client_copy3(&info, (const char*)src_path, &revision, (const char*)dst_path, SVN_G(ctx), subpool);
+	err = svn_client_copy2(&info, (const char*)src_path, &revision, (const char*)dst_path, SVN_G(ctx), subpool);
 	SVN_G(ctx)->log_msg_baton = NULL;
 
 	if (err) {
