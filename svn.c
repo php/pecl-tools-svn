@@ -370,7 +370,7 @@ static int init_svn_client(TSRMLS_D)
 }
 
 /* {{{ proto string svn_auth_get_parameter(string key)
-   Retrieves authentication parameter at key */
+	Retrieves authentication parameter at key */
 PHP_FUNCTION(svn_auth_get_parameter)
 {
 	char *key;
@@ -391,7 +391,7 @@ PHP_FUNCTION(svn_auth_get_parameter)
 /* }}} */
 
 /* {{{ proto void svn_auth_set_parameter(string key, string value)
-   Sets authentication parameter at key to value */
+	Sets authentication parameter at key to value */
 PHP_FUNCTION(svn_auth_set_parameter)
 {
 	char *key, *value;
@@ -407,7 +407,7 @@ PHP_FUNCTION(svn_auth_set_parameter)
 /* }}} */
 
 /* {{{ proto bool svn_import(string path, string url, bool nonrecursive)
-   Imports unversioned path into repository at url */
+	Imports unversioned path into repository at url */
 PHP_FUNCTION(svn_import)
 {
 	svn_client_commit_info_t *commit_info_p = NULL;
@@ -635,8 +635,8 @@ PHP_MINFO_FUNCTION(svn)
 /* }}} */
 
 
-/* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = Svn::HEAD [, int flags]])
-   Checks out a particular revision from repos into targetpath */
+/* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = SVN_REVISION_HEAD [, int flags]])
+	Checks out a particular revision from a repository into target_path. */
 PHP_FUNCTION(svn_checkout)
 {
 	char *repos_url = NULL, *target_path = NULL;
@@ -694,7 +694,7 @@ PHP_FUNCTION(svn_checkout)
 /* }}} */
 
 /* {{{ proto string svn_cat(string repository_url [, int revision_no])
-   Returns the contents of repository_url, optionally at revision_no */
+	Returns the contents of a file in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_cat)
 {
 	char *url = NULL;
@@ -770,7 +770,7 @@ cleanup:
 
 
 /* {{{ proto array svn_ls(string repository_url [, int revision_no])
-   Returns list of directory contents in repository_url, optionally at revision_no */
+	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_ls)
 {
 	char *repos_url = NULL;
@@ -947,8 +947,8 @@ php_svn_log_receiver (	void *ibaton,
 	return SVN_NO_ERROR;
 }
 
-/* {{{ proto array svn_log(string repository_url [, int start_revision =  Svn::HEAD [, int end_revision = Svn::INITIAL [, int limit [, int flags ]]]])
-   Returns the commit log messages of repository_url */
+/* {{{ proto array svn_log(string repository_url [, int start_revision =  SVN_REVISION_HEAD [, int end_revision = SVN_REVISION_INITIAL [, int limit [, int flags ]]]])
+	Returns the commit log messages on the working copy or repository object specified. */
 PHP_FUNCTION(svn_log)
 {
 	const char *url = NULL, *utf8_url = NULL;
@@ -1087,8 +1087,9 @@ static php_stream_ops php_apr_stream_ops = {
 	NULL /* set_option */
 };
 
-/* {{{ proto array svn_diff(string path1, int rev1, string path2, int rev2)
-   Recursively diffs two paths.  Returns an array consisting of two streams: the first is the diff output and the second contains error stream output */
+/* {{{ proto array svn_diff(string path1, int revision1, string path2, int revision2)
+	Produce diff output which describes the delta between path1/revision1 and path2/revision2.
+	Returns an array consisting of two streams: the first is the diff output and the second contains error stream output */
 PHP_FUNCTION(svn_diff)
 {
 	const char *tmp_dir;
@@ -1191,7 +1192,7 @@ PHP_FUNCTION(svn_diff)
 /* }}} */
 
 /* {{{ proto bool svn_cleanup(string workingdir)
-   Recursively cleanup a working copy directory, finishing any incomplete operations, removing lockfiles, etc. */
+	Recursively cleanup a working copy directory, finishing any incomplete operations, removing lockfiles, etc. */
 PHP_FUNCTION(svn_cleanup)
 {
 	char *workingdir;
@@ -1223,8 +1224,7 @@ PHP_FUNCTION(svn_cleanup)
 /* }}} */
 
 /* {{{ proto bool svn_revert(string path [, bool recursive = false])
-	Revert any changes to the path in a working copy
-*/
+	Revert any local changes to the path in a working copy. */
 PHP_FUNCTION(svn_revert)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -1269,7 +1269,7 @@ PHP_FUNCTION(svn_revert)
 /* }}} */
 
 /* {{{ proto bool svn_resolved(string path [, bool recursive = false])
-	Marks a conflicted path as resolved */
+	Marks a conflicted path as resolved. */
 PHP_FUNCTION(svn_resolved)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -1339,7 +1339,7 @@ static apr_hash_t *replicate_zend_hash_to_apr_hash(zval *arr, apr_pool_t *pool T
 }
 
 /* {{{ proto string svn_fs_revision_prop(resource fs, int revnum, string propname)
-   Fetches the value of a named property */
+	Fetches the value of property propname at revision revnum in the filesystem. */
 PHP_FUNCTION(svn_fs_revision_prop)
 {
 	zval *zfs;
@@ -1366,17 +1366,17 @@ PHP_FUNCTION(svn_fs_revision_prop)
 	err = svn_fs_revision_prop(&str, fs->fs, revnum, propname, subpool);
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+	} else {
+		RETVAL_STRINGL((char*)str->data, str->len, 1);
 	}
-
-	RETVAL_STRINGL((char*)str->data, str->len, 1);
 
 	svn_pool_destroy(subpool);
 }
 /* }}} */
 
 /* {{{ proto int svn_fs_youngest_rev(resource fs)
-   Returns the number of the youngest revision in the filesystem */
+	Returns the number of the youngest revision in the filesystem. */
 PHP_FUNCTION(svn_fs_youngest_rev)
 {
 	zval *zfs;
@@ -1404,7 +1404,7 @@ PHP_FUNCTION(svn_fs_youngest_rev)
 
 
 /* {{{ proto resource svn_fs_revision_root(resource fs, int revnum)
-   Get a handle on a specific version of the repository root */
+	Get a handle on a specific revision of the repository root. */
 PHP_FUNCTION(svn_fs_revision_root)
 {
 	zval *zfs;
@@ -1483,7 +1483,7 @@ static php_stream_ops php_svn_stream_ops = {
 };
 
 /* {{{ proto resource svn_fs_file_contents(resource fsroot, string path)
-   Returns a stream to access the contents of a file from a given version of the fs */
+	Returns a stream to access the contents of the file at path. */
 PHP_FUNCTION(svn_fs_file_contents)
 {
 	zval *zfsroot;
@@ -1514,7 +1514,7 @@ PHP_FUNCTION(svn_fs_file_contents)
 /* }}} */
 
 /* {{{ proto int svn_fs_file_length(resource fsroot, string path)
-   Returns the length of a file from a given version of the fs */
+	Tthe length of the file path in fsroot, in bytes. */
 PHP_FUNCTION(svn_fs_file_length)
 {
 	zval *zfsroot;
@@ -1551,7 +1551,7 @@ PHP_FUNCTION(svn_fs_file_length)
 /* }}} */
 
 /* {{{ proto int svn_fs_node_prop(resource fsroot, string path, string propname)
-   Returns the value of a property for a node */
+	Returns the value of property propname for a path. */
 PHP_FUNCTION(svn_fs_node_prop)
 {
 	zval *zfsroot;
@@ -1592,7 +1592,7 @@ PHP_FUNCTION(svn_fs_node_prop)
 
 
 /* {{{ proto int svn_fs_node_created_rev(resource fsroot, string path)
-   Returns the revision in which path under fsroot was created */
+	Returns the revision in which path under fsroot was created. */
 PHP_FUNCTION(svn_fs_node_created_rev)
 {
 	zval *zfsroot;
@@ -1628,7 +1628,7 @@ PHP_FUNCTION(svn_fs_node_created_rev)
 /* }}} */
 
 /* {{{ proto array svn_fs_dir_entries(resource fsroot, string path)
-   Enumerates the directory entries under path; returns a hash of dir names to file type */
+	Lists the entries at path, the key is the name and the value is the node type. */
 PHP_FUNCTION(svn_fs_dir_entries)
 {
 	zval *zfsroot;
@@ -1674,7 +1674,7 @@ PHP_FUNCTION(svn_fs_dir_entries)
 /* }}} */
 
 /* {{{ proto int svn_fs_check_path(resource fsroot, string path)
-   Determines what kind of item lives at path in a given repository fsroot */
+	Determines what kind of node is present at path in a given repository fsroot. */
 PHP_FUNCTION(svn_fs_check_path)
 {
 	zval *zfsroot;
@@ -1711,7 +1711,7 @@ PHP_FUNCTION(svn_fs_check_path)
 /* }}} */
 
 /* {{{ proto resource svn_repos_fs(resource repos)
-   Gets a handle on the filesystem for a repository */
+	Returns the filesystem resource associated with the repository resource repos.  */
 PHP_FUNCTION(svn_repos_fs)
 {
 	struct php_svn_repos *repos = NULL;
@@ -1735,7 +1735,7 @@ PHP_FUNCTION(svn_repos_fs)
 /* }}} */
 
 /* {{{ proto resource svn_repos_open(string path)
-   Open a shared lock on a repository. */
+	Acquires a shared lock on the repository at path. */
 PHP_FUNCTION(svn_repos_open)
 {
 	char *path;
@@ -1816,8 +1816,8 @@ static svn_error_t *info_func (void *baton, const char *path, const svn_info_t *
 	return NULL;
 }
 
-/* {{{ proto array svn_info(string path, bool recurse = false)
-   Returns subversion information about a path */
+/* {{{ proto array svn_info(string path [, bool recurse = false])
+	Returns subversion information about a working copy. */
 PHP_FUNCTION(svn_info)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -1845,7 +1845,7 @@ PHP_FUNCTION(svn_info)
 	array_init(return_value);
 	rev.kind = svn_opt_revision_head;
 
-	err = svn_client_info (path, NULL, NULL, info_func, return_value, recurse, SVN_G(ctx), subpool);
+	err = svn_client_info(path, NULL, NULL, info_func, return_value, recurse, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -1857,7 +1857,8 @@ PHP_FUNCTION(svn_info)
 /* }}} */
 
 /* {{{ proto resource svn_export(string frompath, string topath [, bool working_copy = true])
-   Exports a clean directory tree from the repository specified into the path provided */
+	Export the contents of either a working copy or repository into a 'clean' directory.
+	If working_copy is true it will export uncommitted files from a working copy. */
 PHP_FUNCTION(svn_export)
 {
 	const char *from = NULL, *to = NULL;
@@ -1908,8 +1909,7 @@ PHP_FUNCTION(svn_export)
 /* }}} */
 
 /* {{{ proto resource svn_switch(string path, string url [, bool working_copy = true])
-	Switch an existing working directory to another development URL within the same repository.
-   */
+	Switch an existing working copy to another development URL within the same repository. */
 PHP_FUNCTION(svn_switch)
 {
 	char *url, *path;
@@ -1951,8 +1951,7 @@ PHP_FUNCTION(svn_switch)
 /* }}} */
 
 /* {{{ proto resource svn_copy(string log, string src_path, string destination_path [, bool working_copy = true])
-	Copies src path to destination path in working copy and respository
-   */
+	Copies src path to destination path in a working copy or respository. */
 PHP_FUNCTION(svn_copy)
 {
 	char *src_path, *dst_path, *log;
@@ -2042,8 +2041,7 @@ php_svn_blame_message_receiver (void *baton,
 }
 
 /* {{{ proto array svn_blame(string repository_url [, int revision_no])
-	Returns the revision number, date and author of each line
- */
+	Returns the revision number, date and author for each line of a file in a working copy or repository.*/
 PHP_FUNCTION(svn_blame)
 {
 	const char *repos_url = NULL;
@@ -2054,8 +2052,6 @@ PHP_FUNCTION(svn_blame)
 			start_revision = { 0 },
 			end_revision = { 0 },
 			peg_revision;
-	/*svn_diff_file_options_t diff_options;
-	svn_boolean_t ignore_mime_type = TRUE;*/
 	apr_pool_t *subpool;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &repos_url, &repos_url_len, &revision) == FAILURE) {
@@ -2081,8 +2077,6 @@ PHP_FUNCTION(svn_blame)
 		end_revision.value.number = revision ;
 	}
 	peg_revision.kind = svn_opt_revision_unspecified;
-	/*diff_options.ignore_space = svn_diff_file_ignore_space_none;
-	diff_options.ignore_eol_style = FALSE;*/
 
 	array_init(return_value);
 
@@ -2091,8 +2085,6 @@ PHP_FUNCTION(svn_blame)
 			&peg_revision,
 			&start_revision,
 			&end_revision,
-			/*&diff_options,
-			ignore_mime_type,*/
 			php_svn_blame_message_receiver,
 			(void *) return_value,
 			SVN_G(ctx),
@@ -2108,8 +2100,7 @@ PHP_FUNCTION(svn_blame)
 /* }}} */
 
 /* {{{ proto mixed svn_delete(string path [, bool force = true])
-	Delete a file from a repository
-   */
+	Delete items from a working copy or repository. */
 PHP_FUNCTION(svn_delete)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -2156,8 +2147,7 @@ PHP_FUNCTION(svn_delete)
 /* }}} */
 
 /* {{{ proto mixed svn_mkdir(string path)
-	Creates a directory in a working copy or repository
-   */
+	Creates a directory in a working copy or repository. */
 PHP_FUNCTION(svn_mkdir)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -2204,8 +2194,7 @@ PHP_FUNCTION(svn_mkdir)
 /* }}} */
 
 /* {{{ proto mixed svn_move(string src_path, string dst_path [, bool force])
-	Move paths in a working copy or repository
-   */
+	Moves src_path to dst_path in a working copy or repository. */
 PHP_FUNCTION(svn_move)
 {
 	const char *src_path = NULL, *utf8_src_path = NULL;
@@ -2253,8 +2242,7 @@ PHP_FUNCTION(svn_move)
 /* }}} */
 
 /* {{{ proto mixed svn_proplist(string path [, bool recurse])
-	Move paths in a working copy or repository
-   */
+	Returns the properties of a path, the path can be a working copy or repository. */
 PHP_FUNCTION(svn_proplist)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -2320,8 +2308,7 @@ PHP_FUNCTION(svn_proplist)
 /* }}} */
 
 /* {{{ proto mixed svn_propget(string path, string property_name [, bool recurse])
-	Move paths in a working copy or repository
-   */
+	Returns an array of paths with a propery of property_name from a working copy or repository. */
 PHP_FUNCTION(svn_propget)
 {
 	const char *path = NULL, *utf8_path = NULL;
@@ -2381,7 +2368,7 @@ PHP_FUNCTION(svn_propget)
 /* }}} */
 
 /* {{{ proto resource svn_repos_create(string path [, array config [, array fsconfig]])
-   Create a new subversion repository at path */
+	Create a new Subversion repository at path. */
 PHP_FUNCTION(svn_repos_create)
 {
 	char *path;
@@ -2429,7 +2416,7 @@ PHP_FUNCTION(svn_repos_create)
 /* }}} */
 
 /* {{{ proto bool svn_repos_recover(string path)
-   Run recovery procedures on the repository located at path. */
+	Run database recovery procedures on the repository at path, returning the database to a consistent state. */
 PHP_FUNCTION(svn_repos_recover)
 {
 	char *path;
@@ -2461,18 +2448,18 @@ PHP_FUNCTION(svn_repos_recover)
 }
 /* }}} */
 
-/* {{{ proto bool svn_repos_hotcopy(string repospath, string destpath, bool cleanlogs)
-   Make a hot-copy of the repos at repospath; copy it to destpath */
+/* {{{ proto bool svn_repos_hotcopy(string src_path, string dst_path, bool cleanlogs)
+	Make a hot copy of the Subversion repository found at src_path to dst_path. */
 PHP_FUNCTION(svn_repos_hotcopy)
 {
-	char *path, *dest;
-	int pathlen, destlen;
+	char *src_path, *dst_path;
+	int src_path_len, dst_path_len;
 	zend_bool cleanlogs;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssb",
-				&path, &pathlen, &dest, &destlen, &cleanlogs)) {
+				&src_path, &src_path_len, &dst_path, &dst_path_len, &cleanlogs)) {
 		return;
 	}
 
@@ -2482,7 +2469,7 @@ PHP_FUNCTION(svn_repos_hotcopy)
 		RETURN_FALSE;
 	}
 
-	err = svn_repos_hotcopy(path, dest, cleanlogs, subpool);
+	err = svn_repos_hotcopy(src_path, dst_path, cleanlogs, subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2522,13 +2509,13 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
 	return apr_arr;
 }
 
-/* {{{ proto array svn_commit(string log, mixed targets [, bool dontrecurse])
-   Sends changes from the local working copy to the repository */
+/* {{{ proto array svn_commit(string log, mixed targets [, bool non_recursive])
+	Commit files or directories from the local working copy into the repository */
 PHP_FUNCTION(svn_commit)
 {
 	char *log, *path = NULL;
 	int loglen, pathlen;
-	zend_bool dontrecurse = 0;
+	zend_bool non_recursive = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 	svn_client_commit_info_t *info = NULL;
@@ -2536,9 +2523,9 @@ PHP_FUNCTION(svn_commit)
 	apr_array_header_t *targets_array;
 
 	if (FAILURE == zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
-				&log, &loglen, &path, &pathlen, &dontrecurse)) {
+				&log, &loglen, &path, &pathlen, &non_recursive)) {
 		if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
-					&log, &loglen, &targets, &dontrecurse)) {
+					&log, &loglen, &targets, &non_recursive)) {
 			return;
 		}
 	}
@@ -2558,7 +2545,7 @@ PHP_FUNCTION(svn_commit)
 		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
 	}
 
-	err = svn_client_commit(&info, targets_array, dontrecurse, SVN_G(ctx), subpool);
+	err = svn_client_commit(&info, targets_array, non_recursive, SVN_G(ctx), subpool);
 	SVN_G(ctx)->log_msg_baton = NULL;
 
 	if (err) {
@@ -2579,7 +2566,7 @@ PHP_FUNCTION(svn_commit)
 /* }}} */
 
 /* {{{ proto bool svn_add(string path [, bool recursive [, bool force]])
-   Schedule the addition of a file in a working directory */
+	Schedule the addition of a file or path to a working directory */
 PHP_FUNCTION(svn_add)
 {
 	char *path;
@@ -2673,7 +2660,7 @@ static void php_svn_status_receiver(void *baton, const char *path, svn_wc_status
 }
 
 /* {{{ proto array svn_status(string path [, int flags]])
-   Returns the status of working copy files and directories */
+	Returns the status of a working copy directory or a single file */
 PHP_FUNCTION(svn_status)
 {
 	char *path;
@@ -2724,7 +2711,7 @@ PHP_FUNCTION(svn_status)
 /* }}} */
 
 /* {{{ proto int svn_update(string path [, int revno [, bool recurse]])
-   Update working copy at path to revno */
+	Updates a working copy at path to revno */
 PHP_FUNCTION(svn_update)
 {
 	char *path;
@@ -2780,7 +2767,7 @@ static void php_svn_get_version(char *buf, int buflen)
 }
 
 /* {{{ proto string svn_client_version()
-   Returns the version of the SVN client libraries */
+	Returns the version of the SVN client libraries */
 PHP_FUNCTION(svn_client_version)
 {
 	char vers[128];
@@ -2795,7 +2782,7 @@ PHP_FUNCTION(svn_client_version)
 /* }}} */
 
 /* {{{ proto resource svn_repos_fs_begin_txn_for_commit(resource repos, long rev, string author, string log_msg)
-   create a new transaction */
+	create a new transaction */
 PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
 {
 	svn_fs_txn_t *txn_p = NULL;
@@ -2803,10 +2790,8 @@ PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
 	zval *zrepos;
 	struct php_svn_repos *repos = NULL;
 	svn_revnum_t rev;
-	char *author;
-	int author_len;
-	char *log_msg;
-	int log_msg_len;
+	char *author, *log_msg;
+	int author_len, log_msg_len;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 
@@ -2836,13 +2821,13 @@ PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
 
 		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
 	} else {
-		// something went wrong
+		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto int svn_repos_fs_commit_txn(resource txn)
-   commits a transaction and returns the new revision */
+	Commits a transaction and returns the new revision */
 PHP_FUNCTION(svn_repos_fs_commit_txn)
 {
 	zval *ztxn;
@@ -2870,7 +2855,7 @@ PHP_FUNCTION(svn_repos_fs_commit_txn)
 /* }}} */
 
 /* {{{ proto resource svn_fs_txn_root(resource txn)
-   creates and returns a transaction root */
+	Creates and returns a transaction root */
 PHP_FUNCTION(svn_fs_txn_root)
 {
 	svn_fs_root_t *root_p = NULL;
@@ -2890,6 +2875,7 @@ PHP_FUNCTION(svn_fs_txn_root)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
 	}
 
 	if (root_p) {
@@ -2900,13 +2886,13 @@ PHP_FUNCTION(svn_fs_txn_root)
 
 		ZEND_REGISTER_RESOURCE(return_value, new_root, le_svn_fs_root);
 	} else {
-		// something went wrong
+		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto bool svn_fs_make_file(resource root, string path)
-   creates a new empty file, returns true if all is ok, false otherwise */
+	Create a new file named path in root, returns true on success, false otherwise */
 PHP_FUNCTION(svn_fs_make_file)
 {
 	zval *zroot;
@@ -2934,7 +2920,7 @@ PHP_FUNCTION(svn_fs_make_file)
 /* }}} */
 
 /* {{{ proto bool svn_fs_make_dir(resource root, string path)
-   creates a new empty directory, returns true if all is ok, false otherwise*/
+	Create a new directory named path in root, returns true on success, false otherwise */
 PHP_FUNCTION(svn_fs_make_dir)
 {
 	zval *zroot;
@@ -2955,7 +2941,7 @@ PHP_FUNCTION(svn_fs_make_dir)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETURN_FALSE;
-    } else {
+	} else {
 		RETURN_TRUE;
 	}
 }
@@ -2963,8 +2949,8 @@ PHP_FUNCTION(svn_fs_make_dir)
 
 
 /* {{{ proto resource svn_fs_apply_text(resource root, string path)
-   creates and returns a stream that will be used to replace
-   the content of an existing file */
+	Creates and returns a stream that will be used to replace
+	the content of an existing file. */
 PHP_FUNCTION(svn_fs_apply_text)
 {
 	zval *zroot;
@@ -2993,14 +2979,13 @@ PHP_FUNCTION(svn_fs_apply_text)
 		stm = php_stream_alloc(&php_svn_stream_ops, stream_p, 0, "w");
 		php_stream_to_zval(stm, return_value);
 	} else {
-		// something went wrong
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto bool svn_fs_copy(resource from_root, string from_path, resourse to_root, string to_path)
-   copies a file or a directory, returns true if all is ok, false otherwise */
+	Create a copy of from_path in from_root named to_path in to_root, returns true on success, false otherwise */
 PHP_FUNCTION(svn_fs_copy)
 {
 	zval *zfrom_root, *zto_root;
@@ -3030,7 +3015,7 @@ PHP_FUNCTION(svn_fs_copy)
 /* }}} */
 
 /* {{{ proto bool svn_fs_delete(resource root, string path)
-   deletes a file or a directory, return true if all is ok, false otherwise */
+	Delete the filesystem at path, return true on success, false otherwise */
 PHP_FUNCTION(svn_fs_delete)
 {
 	zval *zroot;
@@ -3058,7 +3043,7 @@ PHP_FUNCTION(svn_fs_delete)
 /* }}} */
 
 /* {{{ proto resource svn_fs_begin_txn2(resource repos, long rev)
-   create a new transaction */
+	Begin a new transaction on the filesystem, based on the existing revision specified. */
 PHP_FUNCTION(svn_fs_begin_txn2)
 {
 	svn_fs_txn_t *txn_p = NULL;
@@ -3085,6 +3070,7 @@ PHP_FUNCTION(svn_fs_begin_txn2)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
+		RETURN_FALSE;
 	}
 
 	if (txn_p) {
@@ -3095,13 +3081,13 @@ PHP_FUNCTION(svn_fs_begin_txn2)
 
 		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
 	} else {
-		// something went wrong
+		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto bool svn_fs_is_file(resource root, string path)
-   return true if the path points to a file, false otherwise */
+	Returns true if path in root is a file, false otherwise */
 PHP_FUNCTION(svn_fs_is_file)
 {
 	zval *zroot;
@@ -3109,7 +3095,7 @@ PHP_FUNCTION(svn_fs_is_file)
 	char *path;
 	int path_len;
 	svn_error_t *err;
-	int is_file;
+	svn_boolean_t is_file;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
@@ -3130,7 +3116,7 @@ PHP_FUNCTION(svn_fs_is_file)
 /* }}} */
 
 /* {{{ proto bool svn_fs_is_dir(resource root, string path)
-   return true if the path points to a directory, false otherwise */
+	Returns true if path in root is a directory, false otherwise */
 PHP_FUNCTION(svn_fs_is_dir)
 {
 	zval *zroot;
@@ -3138,7 +3124,7 @@ PHP_FUNCTION(svn_fs_is_dir)
 	char *path;
 	int path_len;
 	svn_error_t *err;
-	int is_dir;
+	svn_boolean_t is_dir;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
@@ -3159,17 +3145,13 @@ PHP_FUNCTION(svn_fs_is_dir)
 /* }}} */
 
 /* {{{ proto bool svn_fs_change_node_prop(resource root, string path, string name, string value)
-   return true if everything is ok, false otherwise */
+	Change a node's property's value, or add/delete a property. Returns true on success. */
 PHP_FUNCTION(svn_fs_change_node_prop)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
-	int path_len;
-	char *name;
-	int name_len;
-	char *value;
-	int value_len;
+	char *path, *name, *value;
+	int path_len, name_len, value_len;
 	svn_string_t *svn_value;
 	svn_error_t *err;
 
@@ -3198,17 +3180,13 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 /* }}} */
 
 /* {{{ proto bool svn_fs_contents_changed(resource root1, string path1, resource root2, string path2)
-   return true if content is different, false otherwise */
+	Returns true if the contents at path1 under root1 differ from those at path2 under root2, or set it to 0 if they are the same */
 PHP_FUNCTION(svn_fs_contents_changed)
 {
-	zval *zroot1;
-	struct php_svn_fs_root *root1 = NULL;
-	zval *zroot2;
-	struct php_svn_fs_root *root2 = NULL;
-	char *path1;
-	int path1_len;
-	char *path2;
-	int path2_len;
+	zval *zroot1, *zroot2;
+	struct php_svn_fs_root *root1 = NULL, *root2 = NULL;
+	char *path1, *path2;
+	int path1_len, path2_len;
 	svn_boolean_t changed;
 	svn_error_t *err;
 
@@ -3227,28 +3205,22 @@ PHP_FUNCTION(svn_fs_contents_changed)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETURN_FALSE;
+	} else if (changed == 1) {
+		RETURN_TRUE;
 	} else {
-		if (changed == 1) {
-			RETURN_TRUE;
-		} else {
-			RETURN_FALSE;
-		}
+		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto bool svn_fs_props_changed(resource root1, string path1, resource root2, string path2)
-   return true if props are different, false otherwise */
+	Returns true if the properties of two path/root combinations are different, else false. */
 PHP_FUNCTION(svn_fs_props_changed)
 {
-	zval *zroot1;
-	struct php_svn_fs_root *root1 = NULL;
-	zval *zroot2;
-	struct php_svn_fs_root *root2 = NULL;
-	char *path1;
-	int path1_len;
-	char *path2;
-	int path2_len;
+	zval *zroot1, *zroot2;
+	struct php_svn_fs_root *root1 = NULL, *root2 = NULL;
+	char *path1, *path2;
+	int path1_len, path2_len;
 	svn_boolean_t changed;
 	svn_error_t *err;
 
@@ -3267,18 +3239,16 @@ PHP_FUNCTION(svn_fs_props_changed)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETURN_FALSE;
+	} else if (changed == 1) {
+		RETURN_TRUE;
 	} else {
-		if (changed == 1) {
-			RETURN_TRUE;
-		} else {
-			RETURN_FALSE;
-		}
+		RETURN_FALSE;
 	}
 }
 /* }}} */
 
 /* {{{ proto bool svn_fs_abort_txn(resource txn)
-   abort a transaction, returns true if everything is ok, false othewise */
+	Aborts a transaction, returns true on success, false otherwise */
 PHP_FUNCTION(svn_fs_abort_txn)
 {
 	zval *ztxn;
