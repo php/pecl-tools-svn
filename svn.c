@@ -411,7 +411,8 @@ PHP_FUNCTION(svn_auth_set_parameter)
 PHP_FUNCTION(svn_import)
 {
 	svn_client_commit_info_t *commit_info_p = NULL;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	char *url;
 	int urllen;
@@ -430,6 +431,9 @@ PHP_FUNCTION(svn_import)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_client_import(&commit_info_p, path, url, nonrecursive,
 			SVN_G(ctx), subpool);
@@ -697,7 +701,8 @@ PHP_FUNCTION(svn_checkout)
 	Returns the contents of a file in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_cat)
 {
-	char *url = NULL;
+	const char *url = NULL;
+	const char *utf8_url = NULL;
 	int url_len;
 	apr_size_t size;
 	svn_error_t *err;
@@ -735,7 +740,10 @@ PHP_FUNCTION(svn_cat)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create svn stream");
 		goto cleanup;
 	}
-	/* do we need to utf8 / canonize the path ? */
+
+	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	url = svn_path_canonicalize(utf8_url, subpool);
+
 	err = svn_opt_parse_path(&peg_revision, &true_path, url, subpool);
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -773,7 +781,8 @@ cleanup:
 	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_ls)
 {
-	char *repos_url = NULL;
+	const char *repos_url = NULL;
+	const char *utf8_repos_url = NULL;
 	int repos_url_len,  revision_no = -1;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
@@ -791,7 +800,9 @@ PHP_FUNCTION(svn_ls)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
-	RETVAL_FALSE;
+
+	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+	repos_url = svn_path_canonicalize(utf8_repos_url, subpool);
 
 	if (revision_no <= 0) {
 		revision.kind = svn_opt_revision_head;
@@ -809,6 +820,7 @@ PHP_FUNCTION(svn_ls)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
 		goto cleanup;
 	}
 
@@ -1195,12 +1207,13 @@ PHP_FUNCTION(svn_diff)
 	Recursively cleanup a working copy directory, finishing any incomplete operations, removing lockfiles, etc. */
 PHP_FUNCTION(svn_cleanup)
 {
-	char *workingdir;
-	int len;
+	const char *workingdir = NULL;
+	const char *utf8_workingdir = NULL;
+	int workingdir_len;
 	svn_error_t *err;
 	apr_pool_t *subpool;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &workingdir, &len)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &workingdir, &workingdir_len)) {
 		RETURN_FALSE;
 	}
 
@@ -1209,6 +1222,9 @@ PHP_FUNCTION(svn_cleanup)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_workingdir, workingdir, subpool);
+	workingdir = svn_path_canonicalize(utf8_workingdir, subpool);
 
 	err = svn_client_cleanup(workingdir, SVN_G(ctx), subpool);
 
@@ -1488,10 +1504,12 @@ PHP_FUNCTION(svn_fs_file_contents)
 {
 	zval *zfsroot;
 	struct php_svn_fs_root *fsroot;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	svn_error_t *err;
 	svn_stream_t *svnstm;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zfsroot, &path, &pathlen)) {
@@ -1500,16 +1518,25 @@ PHP_FUNCTION(svn_fs_file_contents)
 
 	ZEND_FETCH_RESOURCE(fsroot, struct php_svn_fs_root*, &zfsroot, -1, "svn-fs-root", le_svn_fs_root);
 
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
+
 	err = svn_fs_file_contents(&svnstm, fsroot->root, path, SVN_G(pool));
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
 		php_stream *stm;
 		stm = php_stream_alloc(&php_svn_stream_ops, svnstm, 0, "r");
 		php_stream_to_zval(stm, return_value);
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -1519,7 +1546,8 @@ PHP_FUNCTION(svn_fs_file_length)
 {
 	zval *zfsroot;
 	struct php_svn_fs_root *fsroot;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	svn_filesize_t len;
 	svn_error_t *err;
@@ -1536,6 +1564,9 @@ PHP_FUNCTION(svn_fs_file_length)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_file_length(&len, fsroot->root, path, subpool);
 
@@ -1556,7 +1587,9 @@ PHP_FUNCTION(svn_fs_node_prop)
 {
 	zval *zfsroot;
 	struct php_svn_fs_root *fsroot;
-	char *path, *propname;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
+	char *propname;
 	int pathlen, propnamelen;
 	svn_error_t *err;
 	apr_pool_t *subpool;
@@ -1573,6 +1606,9 @@ PHP_FUNCTION(svn_fs_node_prop)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_node_prop(&val, fsroot->root, path, propname, subpool);
 
@@ -1597,7 +1633,8 @@ PHP_FUNCTION(svn_fs_node_created_rev)
 {
 	zval *zfsroot;
 	struct php_svn_fs_root *fsroot;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	svn_error_t *err;
 	apr_pool_t *subpool;
@@ -1614,6 +1651,9 @@ PHP_FUNCTION(svn_fs_node_created_rev)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_node_created_rev(&rev, fsroot->root, path, subpool);
 
@@ -1633,7 +1673,8 @@ PHP_FUNCTION(svn_fs_dir_entries)
 {
 	zval *zfsroot;
 	struct php_svn_fs_root *fsroot;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	svn_error_t *err;
 	apr_pool_t *subpool;
@@ -1655,6 +1696,9 @@ PHP_FUNCTION(svn_fs_dir_entries)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_dir_entries(&hash, fsroot->root, path, subpool);
 
@@ -1680,7 +1724,8 @@ PHP_FUNCTION(svn_fs_check_path)
 	zval *zfsroot;
 	svn_node_kind_t kind;
 	struct php_svn_fs_root *fsroot;
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	svn_error_t *err;
 	apr_pool_t *subpool;
@@ -1696,6 +1741,9 @@ PHP_FUNCTION(svn_fs_check_path)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_check_path(&kind, fsroot->root, path, subpool);
 
@@ -1738,7 +1786,8 @@ PHP_FUNCTION(svn_repos_fs)
 	Acquires a shared lock on the repository at path. */
 PHP_FUNCTION(svn_repos_open)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	apr_pool_t *subpool;
 	svn_error_t *err;
@@ -1756,7 +1805,10 @@ PHP_FUNCTION(svn_repos_open)
 		RETURN_FALSE;
 	}
 
-	err = svn_repos_open(&repos, path, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
+
+	err = svn_repos_open(&repos, path, SVN_G(pool));
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -1768,9 +1820,9 @@ PHP_FUNCTION(svn_repos_open)
 		resource->repos = repos;
 		ZEND_REGISTER_RESOURCE(return_value, resource, le_svn_repos);
 	} else {
-		svn_pool_destroy(subpool);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -1912,7 +1964,8 @@ PHP_FUNCTION(svn_export)
 	Switch an existing working copy to another development URL within the same repository. */
 PHP_FUNCTION(svn_switch)
 {
-	char *url, *path;
+	const char *url = NULL, *path = NULL;
+	const char *utf8_url = NULL, *utf8_path = NULL;
 	int urllen, pathlen;
 	apr_pool_t *subpool;
 	zend_bool working_copy = 1;
@@ -1931,13 +1984,19 @@ PHP_FUNCTION(svn_switch)
 		RETURN_FALSE;
 	}
 
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+
+	path = svn_path_canonicalize(utf8_path, subpool);
+	url = svn_path_canonicalize(utf8_url, subpool);
+
 	if (working_copy) {
 		revision.kind = svn_opt_revision_working;
 	} else {
 		revision.kind = svn_opt_revision_head;
 	}
 
-	err = svn_client_switch(NULL, (const char*)path, (const char*)url, &revision, TRUE, SVN_G(ctx), subpool);
+	err = svn_client_switch(NULL, path, url, &revision, TRUE, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -1954,8 +2013,10 @@ PHP_FUNCTION(svn_switch)
 	Copies src path to destination path in a working copy or respository. */
 PHP_FUNCTION(svn_copy)
 {
-	char *src_path, *dst_path, *log;
-	int src_pathlen, dst_pathlen, loglen ;
+	const char *src_path = NULL, *dst_path = NULL;
+	const char *utf8_src_path = NULL, *utf8_dst_path = NULL;
+	char *log;
+	int src_pathlen, dst_pathlen, loglen;
 	apr_pool_t *subpool;
 	zend_bool working_copy = 1;
 	svn_error_t *err;
@@ -1973,6 +2034,12 @@ PHP_FUNCTION(svn_copy)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+
+	src_path = svn_path_canonicalize(utf8_src_path, subpool);
+	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
 
 	if (working_copy) {
 		revision.kind = svn_opt_revision_working;
@@ -2045,6 +2112,7 @@ php_svn_blame_message_receiver (void *baton,
 PHP_FUNCTION(svn_blame)
 {
 	const char *repos_url = NULL;
+	const char *utf8_repos_url = NULL;
 	int repos_url_len;
 	int revision = -1;
 	svn_error_t *err;
@@ -2064,7 +2132,8 @@ PHP_FUNCTION(svn_blame)
 		RETURN_FALSE;
 	}
 
-	RETVAL_FALSE;
+	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+	repos_url = svn_path_canonicalize(utf8_repos_url, subpool);
 
 	if (revision == -1) {
 		start_revision.kind =  svn_opt_revision_head;
@@ -2220,10 +2289,10 @@ PHP_FUNCTION(svn_move)
 	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
 	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
 
-	utf8_src_path = svn_path_canonicalize(utf8_src_path, subpool);
-	utf8_dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
+	src_path = svn_path_canonicalize(utf8_src_path, subpool);
+	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
 
-	err = svn_client_move3(&info, utf8_src_path, utf8_dst_path, force, SVN_G(ctx), subpool);
+	err = svn_client_move3(&info, src_path, dst_path, force, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2268,9 +2337,9 @@ PHP_FUNCTION(svn_proplist)
 
 	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
 
-	utf8_path = svn_path_canonicalize(utf8_path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
-	err = svn_client_proplist2(&props, utf8_path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
+	err = svn_client_proplist2(&props, path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2335,9 +2404,9 @@ PHP_FUNCTION(svn_propget)
 
 	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
 
-	utf8_path = svn_path_canonicalize(utf8_path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
-	err = svn_client_propget2(&props, propname, utf8_path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
+	err = svn_client_propget2(&props, propname, path, &peg_revision, &revision, recurse, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2371,7 +2440,8 @@ PHP_FUNCTION(svn_propget)
 	Create a new Subversion repository at path. */
 PHP_FUNCTION(svn_repos_create)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	zval *config = NULL;
 	zval *fsconfig = NULL;
@@ -2393,10 +2463,13 @@ PHP_FUNCTION(svn_repos_create)
 		RETURN_FALSE;
 	}
 
-	config_hash = replicate_zend_hash_to_apr_hash(config, subpool TSRMLS_CC);
-	fsconfig_hash = replicate_zend_hash_to_apr_hash(fsconfig, subpool TSRMLS_CC);
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
-	err = svn_repos_create(&repos, path, NULL, NULL, config_hash, fsconfig_hash, subpool);
+	config_hash = replicate_zend_hash_to_apr_hash(config, SVN_G(pool) TSRMLS_CC);
+	fsconfig_hash = replicate_zend_hash_to_apr_hash(fsconfig, SVN_G(pool) TSRMLS_CC);
+
+	err = svn_repos_create(&repos, path, NULL, NULL, config_hash, fsconfig_hash, SVN_G(pool));
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2408,10 +2481,9 @@ PHP_FUNCTION(svn_repos_create)
 		resource->repos = repos;
 		ZEND_REGISTER_RESOURCE(return_value, resource, le_svn_repos);
 	} else {
-		svn_pool_destroy(subpool);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
-
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -2419,7 +2491,8 @@ PHP_FUNCTION(svn_repos_create)
 	Run database recovery procedures on the repository at path, returning the database to a consistent state. */
 PHP_FUNCTION(svn_repos_recover)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	apr_pool_t *subpool;
 	svn_error_t *err;
@@ -2434,6 +2507,9 @@ PHP_FUNCTION(svn_repos_recover)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_repos_recover2(path, 0, NULL, NULL, subpool);
 
@@ -2452,7 +2528,8 @@ PHP_FUNCTION(svn_repos_recover)
 	Make a hot copy of the Subversion repository found at src_path to dst_path. */
 PHP_FUNCTION(svn_repos_hotcopy)
 {
-	char *src_path, *dst_path;
+	const char *src_path = NULL, *dst_path = NULL;
+	const char *utf8_src_path = NULL, *utf8_dst_path = NULL;
 	int src_path_len, dst_path_len;
 	zend_bool cleanlogs;
 	apr_pool_t *subpool;
@@ -2468,6 +2545,12 @@ PHP_FUNCTION(svn_repos_hotcopy)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+
+	src_path = svn_path_canonicalize(utf8_src_path, subpool);
+	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
 
 	err = svn_repos_hotcopy(src_path, dst_path, cleanlogs, subpool);
 
@@ -2513,8 +2596,10 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
 	Commit files or directories from the local working copy into the repository */
 PHP_FUNCTION(svn_commit)
 {
-	char *log, *path = NULL;
+	char *log = NULL;
 	int loglen, pathlen;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	zend_bool non_recursive = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
@@ -2539,9 +2624,13 @@ PHP_FUNCTION(svn_commit)
 	SVN_G(ctx)->log_msg_baton = log;
 
 	if (path) {
+		svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		path = svn_path_canonicalize(utf8_path, subpool);
+
 		targets_array = apr_array_make (subpool, 1, sizeof(char *));
 		APR_ARRAY_PUSH(targets_array, const char *) = path;
 	} else {
+		/* TODO: need to canonicalize the array */
 		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
 	}
 
@@ -2569,7 +2658,8 @@ PHP_FUNCTION(svn_commit)
 	Schedule the addition of a file or path to a working directory */
 PHP_FUNCTION(svn_add)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	zend_bool recurse = 1, force = 0;
 	apr_pool_t *subpool;
@@ -2585,6 +2675,9 @@ PHP_FUNCTION(svn_add)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_client_add2((const char*)path, recurse, force, SVN_G(ctx), subpool);
 
@@ -2663,7 +2756,8 @@ static void php_svn_status_receiver(void *baton, const char *path, svn_wc_status
 	Returns the status of a working copy directory or a single file */
 PHP_FUNCTION(svn_status)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int path_len;
 	long flags = 0;
 	apr_pool_t *subpool;
@@ -2681,6 +2775,9 @@ PHP_FUNCTION(svn_status)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	array_init(return_value);
 	revision.kind = svn_opt_revision_head;
@@ -2714,7 +2811,8 @@ PHP_FUNCTION(svn_status)
 	Updates a working copy at path to revno */
 PHP_FUNCTION(svn_update)
 {
-	char *path;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
 	int pathlen;
 	zend_bool recurse = 1;
 	apr_pool_t *subpool;
@@ -2733,6 +2831,9 @@ PHP_FUNCTION(svn_update)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	if (revno > 0) {
 		rev.kind = svn_opt_revision_number;
