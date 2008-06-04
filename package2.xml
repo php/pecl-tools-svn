@@ -5,11 +5,8 @@
 	<summary>PHP Bindings for the Subversion Revision control system.</summary>
 
 	<description>
-
-	Bindings for libsvn,
-
-	for more details, have a look at the examples, or google for FlexySvn
-
+	Bindings for the Subversion revision control system, providing a method for manipulating
+	a working copy or repository with PHP.
 	</description>
 	<lead>
 		<name>Alan Knowles</name>
@@ -22,7 +19,7 @@
 		<name>Wez Furlong</name>
 		<user>wez</user>
 		<email>wez@omniti.com</email>
-		<active>yes</active>
+		<active>no</active>
 	</lead>
 
 	<lead>
@@ -33,7 +30,7 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    <date>2008-??-??</date>
+    <date>2008-06-04</date>
 	<version>
 		<release>0.4</release>
 		<api>0.4</api>
@@ -46,10 +43,15 @@
 
 	<license uri="http://www.php.net/license">PHP License</license>
 
-    <notes>
-	- Add support for svn_delete(), svn_mkdir() and svn_move()
-	- Allow svn_commit() to take a string as a patch
-    </notes>
+	<notes>
+	- Fix bug #13414 - Crash when SVN environment fails to initialise.
+	- Fix bug #13677,#13162 - Several functions fail to canonicalized resulting in an abort() call.
+	- Revert change that prevented libsvn 1.3 from being used.
+	- Add check during configure for minimum libsvn version.
+	- Add support for svn_delete(), svn_mkdir(), svn_move(), svn_proplist() and svn_propget().
+	- Allow svn_commit() to take a string instead of an array for paths.
+	- Revert backwards compatible break with svn_log()
+	</notes>
   <!-- /RELEASE SECTION -->
 
 
