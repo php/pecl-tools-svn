@@ -2998,14 +2998,23 @@ PHP_FUNCTION(svn_fs_make_file)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3013,10 +3022,11 @@ PHP_FUNCTION(svn_fs_make_file)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3026,14 +3036,23 @@ PHP_FUNCTION(svn_fs_make_dir)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3041,10 +3060,11 @@ PHP_FUNCTION(svn_fs_make_dir)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3056,15 +3076,24 @@ PHP_FUNCTION(svn_fs_apply_text)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
 	svn_stream_t *stream_p = NULL;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3080,8 +3109,9 @@ PHP_FUNCTION(svn_fs_apply_text)
 		stm = php_stream_alloc(&php_svn_stream_ops, stream_p, 0, "w");
 		php_stream_to_zval(stm, return_value);
 	} else {
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3091,15 +3121,28 @@ PHP_FUNCTION(svn_fs_copy)
 {
 	zval *zfrom_root, *zto_root;
 	struct php_svn_fs_root *from_root, *to_root;
-	char *from_path, *to_path;
+	const char *from_path = NULL, *to_path = NULL;
+	const char *utf8_from_path = NULL, *utf8_to_path = NULL;
 	int from_path_len, to_path_len;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
 				&zfrom_root, &from_path, &from_path_len,
 				&zto_root, &to_path, &to_path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_from_path, from_path, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_to_path, to_path, subpool);
+
+	from_path = svn_path_canonicalize(utf8_from_path, subpool);
+	to_path = svn_path_canonicalize(utf8_to_path, subpool);
 
 	ZEND_FETCH_RESOURCE(from_root, struct php_svn_fs_root *, &zfrom_root, -1, "svn-fs-root", le_svn_fs_root);
 	ZEND_FETCH_RESOURCE(to_root, struct php_svn_fs_root *, &zto_root, -1, "svn-fs-root", le_svn_fs_root);
@@ -3108,10 +3151,11 @@ PHP_FUNCTION(svn_fs_copy)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3121,14 +3165,23 @@ PHP_FUNCTION(svn_fs_delete)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3136,10 +3189,11 @@ PHP_FUNCTION(svn_fs_delete)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3152,7 +3206,6 @@ PHP_FUNCTION(svn_fs_begin_txn2)
 	zval *zfs;
 	struct php_svn_fs *fs = NULL;
 	svn_revnum_t rev;
-	apr_pool_t *subpool;
 	svn_error_t *err;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
@@ -3162,12 +3215,7 @@ PHP_FUNCTION(svn_fs_begin_txn2)
 
 	ZEND_FETCH_RESOURCE(fs, struct php_svn_fs *, &zfs, -1, "svn-fs", le_svn_fs);
 
-	subpool = svn_pool_create(SVN_G(pool));
-	if (!subpool) {
-		RETURN_FALSE;
-	}
-
-	err = svn_fs_begin_txn2(&txn_p, fs->fs, rev, 0, subpool);
+	err = svn_fs_begin_txn2(&txn_p, fs->fs, rev, 0, SVN_G(pool));
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -3193,15 +3241,24 @@ PHP_FUNCTION(svn_fs_is_file)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
 	svn_boolean_t is_file;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3209,10 +3266,11 @@ PHP_FUNCTION(svn_fs_is_file)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_BOOL(is_file);
+		RETVAL_BOOL(is_file);
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3222,15 +3280,24 @@ PHP_FUNCTION(svn_fs_is_dir)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path;
+	const char *path = NULL, *utf8_path = NULL;
 	int path_len;
 	svn_error_t *err;
 	svn_boolean_t is_dir;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 				&zroot, &path, &path_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3238,10 +3305,11 @@ PHP_FUNCTION(svn_fs_is_dir)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_BOOL(is_dir);
+		RETVAL_BOOL(is_dir);
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3251,16 +3319,26 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 {
 	zval *zroot;
 	struct php_svn_fs_root *root = NULL;
-	char *path, *name, *value;
+	const char *path = NULL, *utf8_path = NULL;
+	char *name, *value;
 	int path_len, name_len, value_len;
 	svn_string_t *svn_value;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsss",
 				&zroot, &path, &path_len, &name, &name_len,
 				&value, &value_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
@@ -3273,10 +3351,11 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3286,16 +3365,29 @@ PHP_FUNCTION(svn_fs_contents_changed)
 {
 	zval *zroot1, *zroot2;
 	struct php_svn_fs_root *root1 = NULL, *root2 = NULL;
-	char *path1, *path2;
+	const char *path1 = NULL, *path2 = NULL;
+	const char *utf8_path1 = NULL, *utf8_path2 = NULL;
 	int path1_len, path2_len;
 	svn_boolean_t changed;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
 				&zroot1, &path1, &path1_len,
 				&zroot2, &path2, &path2_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+
+	path1 = svn_path_canonicalize(utf8_path1, subpool);
+	path2 = svn_path_canonicalize(utf8_path2, subpool);
 
 	ZEND_FETCH_RESOURCE(root1, struct php_svn_fs_root *, &zroot1, -1, "svn-fs-root", le_svn_fs_root);
 	ZEND_FETCH_RESOURCE(root2, struct php_svn_fs_root *, &zroot2, -1, "svn-fs-root", le_svn_fs_root);
@@ -3305,12 +3397,13 @@ PHP_FUNCTION(svn_fs_contents_changed)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else if (changed == 1) {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	} else {
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -3320,16 +3413,29 @@ PHP_FUNCTION(svn_fs_props_changed)
 {
 	zval *zroot1, *zroot2;
 	struct php_svn_fs_root *root1 = NULL, *root2 = NULL;
-	char *path1, *path2;
+	const char *path1 = NULL, *path2 = NULL;
+	const char *utf8_path1 = NULL, *utf8_path2 = NULL;
 	int path1_len, path2_len;
 	svn_boolean_t changed;
 	svn_error_t *err;
+	apr_pool_t *subpool;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsrs",
 				&zroot1, &path1, &path1_len,
 				&zroot2, &path2, &path2_len)) {
 		RETURN_FALSE;
 	}
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+
+	path1 = svn_path_canonicalize(utf8_path1, subpool);
+	path2 = svn_path_canonicalize(utf8_path2, subpool);
 
 	ZEND_FETCH_RESOURCE(root1, struct php_svn_fs_root *, &zroot1, -1, "svn-fs-root", le_svn_fs_root);
 	ZEND_FETCH_RESOURCE(root2, struct php_svn_fs_root *, &zroot2, -1, "svn-fs-root", le_svn_fs_root);
@@ -3339,12 +3445,13 @@ PHP_FUNCTION(svn_fs_props_changed)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	} else if (changed == 1) {
-		RETURN_TRUE;
+		RETVAL_TRUE;
 	} else {
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
