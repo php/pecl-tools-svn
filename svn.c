@@ -1877,7 +1877,7 @@ PHP_FUNCTION(svn_info)
 	apr_pool_t *subpool;
 	zend_bool recurse = 1;
 	svn_error_t *err;
-	svn_opt_revision_t rev;
+	svn_opt_revision_t peg_revision, revision;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
 				&path, &pathlen, &recurse)) {
@@ -1895,9 +1895,14 @@ PHP_FUNCTION(svn_info)
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	array_init(return_value);
-	rev.kind = svn_opt_revision_head;
+	peg_revision.kind = svn_opt_revision_unspecified;
+	revision.kind = svn_opt_revision_unspecified;
 
-	err = svn_client_info(path, NULL, NULL, info_func, return_value, recurse, SVN_G(ctx), subpool);
+	if (svn_path_is_url(path)) {
+		peg_revision.kind = svn_opt_revision_head;
+	}
+
+	err = svn_client_info(path, &peg_revision, &revision, info_func, return_value, recurse, SVN_G(ctx), subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
