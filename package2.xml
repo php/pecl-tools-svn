@@ -30,10 +30,10 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    <date>2008-06-04</date>
+    <date>2008-06-28</date>
 	<version>
-		<release>0.4</release>
-		<api>0.4</api>
+		<release>0.5</release>
+		<api>0.5</api>
 	</version>
 
 	<stability>
@@ -44,13 +44,8 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
 	<notes>
-	- Fix bug #13414 - Crash when SVN environment fails to initialise.
-	- Fix bug #13677,#13162 - Several functions fail to canonicalized resulting in an abort() call.
-	- Revert change that prevented libsvn 1.3 from being used.
-	- Add check during configure for minimum libsvn version.
-	- Add support for svn_delete(), svn_mkdir(), svn_move(), svn_proplist() and svn_propget().
-	- Allow svn_commit() to take a string instead of an array for paths.
-	- Revert backwards compatible break with svn_log()
+	- Add recurse option to svn_ls()
+	- Change array keys returned from svn_ls() to be filename
 	</notes>
   <!-- /RELEASE SECTION -->
 
@@ -90,6 +85,30 @@
 
 	<changelog>
 		<release>
+		    <date>2008-06-04</date>
+			<version>
+				<release>0.4</release>
+				<api>0.4</api>
+			</version>
+
+			<stability>
+				<release>beta</release>
+				<api>beta</api>
+			</stability>
+
+			<license uri="http://www.php.net/license">PHP License</license>
+
+			<notes>
+			- Fix bug #13414 - Crash when SVN environment fails to initialise.
+			- Fix bug #13677,#13162 - Several functions fail to canonicalized resulting in an abort() call.
+			- Revert change that prevented libsvn 1.3 from being used.
+			- Add check during configure for minimum libsvn version.
+			- Add support for svn_delete(), svn_mkdir(), svn_move(), svn_proplist() and svn_propget().
+			- Allow svn_commit() to take a string instead of an array for paths.
+			- Revert backwards compatible break with svn_log()
+			</notes>
+		</release>
+		<release>
 			<version>
 				<release>0.3</release>
 				<api>0.3</api>
@@ -98,7 +117,7 @@
 				<release>beta</release>
 				<api>beta</api>
 			</stability>
-	    		<date>2008-02-09</date>
+	    	<date>2008-02-09</date>
 			<license uri="http://www.php.net/licence">PHP Licence</license>
 		    <notes>
 			Backward Compatibilty Breaks:

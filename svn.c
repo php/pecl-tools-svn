@@ -777,13 +777,14 @@ cleanup:
 /* }}} */
 
 
-/* {{{ proto array svn_ls(string repository_url [, int revision_no])
+/* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse]])
 	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_ls)
 {
 	const char *repos_url = NULL;
 	const char *utf8_repos_url = NULL;
 	int repos_url_len,  revision_no = -1;
+	zend_bool recurse = 0;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	apr_hash_t *dirents;
@@ -791,8 +792,8 @@ PHP_FUNCTION(svn_ls)
 	int i;
 	apr_pool_t *subpool;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l",
-			&repos_url, &repos_url_len, &revision_no) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lb",
+			&repos_url, &repos_url_len, &revision_no, &recurse) == FAILURE) {
 		return;
 	}
 	PHP_SVN_INIT_CLIENT();
@@ -815,7 +816,7 @@ PHP_FUNCTION(svn_ls)
 	err = svn_client_ls (&dirents,
                 repos_url,
                 &revision,
-                FALSE,
+                recurse,
                 SVN_G(ctx), subpool);
 
 	if (err) {
@@ -875,8 +876,9 @@ PHP_FUNCTION(svn_ls)
 		/* this doesnt have a matching struct name */
 		add_assoc_string(row, "name", 		(char *) utf8_entryname,1);
 		/* should this be a integer or something? - not very clear though.*/
-		add_assoc_string(row, "type", 		(dirent->kind == svn_node_dir) ? "dir" : "file",1);
-		add_next_index_zval(return_value,row);
+		add_assoc_string(row, "type", 		(dirent->kind == svn_node_dir) ? "dir" : "file", 1);
+
+		add_assoc_zval(return_value, (char *)utf8_entryname, row);
 	}
 
 cleanup:
