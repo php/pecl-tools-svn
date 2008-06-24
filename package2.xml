@@ -30,10 +30,10 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    <date>2008-06-28</date>
+    <date>2008-06-24</date>
 	<version>
-		<release>0.5</release>
-		<api>0.5</api>
+		<release>0.4.1</release>
+		<api>0.4.1</api>
 	</version>
 
 	<stability>
@@ -46,6 +46,7 @@
 	<notes>
 	- Add recurse option to svn_ls()
 	- Change array keys returned from svn_ls() to be filename
+	- Potential BC break with some lower case constants, these are now uppercase.
 	</notes>
   <!-- /RELEASE SECTION -->
 
