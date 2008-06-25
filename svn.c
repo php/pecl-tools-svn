@@ -362,8 +362,6 @@ static int init_svn_client(TSRMLS_D)
 	svn_auth_open (&ab, providers, SVN_G(pool));
 	/* turn off prompting */
 	svn_auth_set_parameter(ab, SVN_AUTH_PARAM_NON_INTERACTIVE, "");
-	/* turn off storing passwords */
-	svn_auth_set_parameter(ab, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
 	SVN_G(ctx)->auth_baton = ab;
 
 	return 0;
@@ -394,13 +392,23 @@ PHP_FUNCTION(svn_auth_get_parameter)
 	Sets authentication parameter at key to value */
 PHP_FUNCTION(svn_auth_set_parameter)
 {
-	char *key, *value;
-	int keylen, valuelen;
+	char *key, *actual_value = NULL;
+	zval *value;
+	int keylen;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &key, &keylen, &value, &valuelen)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &key, &keylen, &value)) {
 		return;
 	}
 	PHP_SVN_INIT_CLIENT();
+
+	if (strcmp(key, SVN_AUTH_PARAM_DEFAULT_PASSWORD) == 0) {
+		svn_auth_set_parameter(SVN_G(ctx)->auth_baton, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
+	}
+
+	if (Z_TYPE_P(value) != IS_NULL) {
+		convert_to_string_ex(&value);
+		actual_value = Z_STRVAL_P(value);
+	}
 
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
 }
