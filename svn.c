@@ -410,7 +410,7 @@ PHP_FUNCTION(svn_auth_set_parameter)
 		actual_value = Z_STRVAL_P(value);
 	}
 
-	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), value));
+	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), actual_value));
 }
 /* }}} */
 
@@ -1117,6 +1117,7 @@ PHP_FUNCTION(svn_diff)
 	long rev1 = -1, rev2 = -1;
 	apr_array_header_t diff_options = { 0, 0, 0, 0, 0};
 	svn_opt_revision_t revision1, revision2;
+	zend_bool ignore_content_type = 0;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl!sl!",
 			&path1, &path1len, &rev1,
@@ -1164,12 +1165,14 @@ PHP_FUNCTION(svn_diff)
 	can_path1= svn_path_canonicalize(utf8_path1, subpool);
 	can_path2= svn_path_canonicalize(utf8_path2, subpool);
 
-	err = svn_client_diff(&diff_options,
+	err = svn_client_diff3(&diff_options,
 			can_path1, &revision1,
 			can_path2, &revision2,
-			1,
-			0,
-			0,
+			1, /* recurse */
+			0, /* ignore_ancestry */
+			0, /* no diff deleted */
+			ignore_content_type,
+			APR_LOCALE_CHARSET, /* header encoding, for 1.4+ use SVN_APR_LOCALE_CHARSET */
 			outfile, errfile,
 			SVN_G(ctx), subpool);
 
@@ -2598,7 +2601,7 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
 	return apr_arr;
 }
 
-/* {{{ proto array svn_commit(string log, mixed targets [, bool non_recursive])
+/* {{{ proto array svn_commit(string log, mixed targets [, bool recursive])
 	Commit files or directories from the local working copy into the repository */
 PHP_FUNCTION(svn_commit)
 {
@@ -2606,17 +2609,17 @@ PHP_FUNCTION(svn_commit)
 	int loglen, pathlen;
 	const char *path = NULL;
 	const char *utf8_path = NULL;
-	zend_bool non_recursive = 0;
+	zend_bool recursive = 1;
 	apr_pool_t *subpool;
 	svn_error_t *err;
-	svn_client_commit_info_t *info = NULL;
+	svn_commit_info_t *info = NULL;
 	zval *targets = NULL;
 	apr_array_header_t *targets_array;
 
 	if (FAILURE == zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
-				&log, &loglen, &path, &pathlen, &non_recursive)) {
+				&log, &loglen, &path, &pathlen, &recursive)) {
 		if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
-					&log, &loglen, &targets, &non_recursive)) {
+					&log, &loglen, &targets, &recursive)) {
 			return;
 		}
 	}
@@ -2640,7 +2643,7 @@ PHP_FUNCTION(svn_commit)
 		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
 	}
 
-	err = svn_client_commit(&info, targets_array, non_recursive, SVN_G(ctx), subpool);
+	err = svn_client_commit3(&info, targets_array, recursive, 1, SVN_G(ctx), subpool);
 	SVN_G(ctx)->log_msg_baton = NULL;
 
 	if (err) {

@@ -1,9 +1,3 @@
-Functions in need of updating to use at least the 1.3 API:
-* svn_commit
-* svn_move
-* svn_diff
-* svn_ls
-
 Functions that need to be added:
 svn_merge
 svn_propset
