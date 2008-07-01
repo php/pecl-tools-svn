@@ -16,9 +16,13 @@ if test "$PHP_SVN" != "no"; then
 	AC_MSG_CHECKING([for svn includes])
 	for i in $PHP_SVN /usr/local /usr /opt /sw; do
 		if test -r $i/include/subversion-1/svn_client.h ; then
-			SVN_DIR=$i
-			PHP_SVN_INCLUDES="-I$i/include/subversion-1"
+			SVN_DIR=$i/include/subversion-1
+			PHP_SVN_INCLUDES="-I$SVN_DIR"
 			PHP_SVN_LDFLAGS="-lsvn_client-1 -lsvn_fs-1 -lsvn_repos-1 -lsvn_subr-1"
+			SVN_VER_MAJOR=`grep '#define SVN_VER_MAJOR' $SVN_DIR/svn_version.h|$SED 's/#define SVN_VER_MAJOR[ \t]*//;s/[ \t]*$//'`
+			SVN_VER_MINOR=`grep '#define SVN_VER_MINOR' $SVN_DIR/svn_version.h|$SED 's/#define SVN_VER_MINOR[ \t]*//;s/[ \t]*$//'`
+			SVN_VER_PATCH=`grep '#define SVN_VER_PATCH' $SVN_DIR/svn_version.h|$SED 's/#define SVN_VER_PATCH[ \t]*//;s/[ \t]*$//'`
+			AC_MSG_RESULT(Found libsvn $SVN_VER_MAJOR.$SVN_VER_MINOR.$SVN_VER_PATCH)
 			break;
 		fi
 	done
@@ -27,8 +31,12 @@ if test "$PHP_SVN" != "no"; then
 		AC_MSG_ERROR([failed to find svn_client.h])
 	fi
 
-	dnl check SVN version, we need at least 1.4
+	dnl check SVN version, we need at least 1.3
+	if test "$SVN_VER_MAJOR" -le 1 -a "$SVN_VER_MINOR" -le 3; then
+		AC_MSG_ERROR([minimum libsvn is 1.3])
+	fi
 
+	AC_MSG_CHECKING([for apr and apr-util])
 	for i in $PHP_SVN_APR $PHP_SVN /usr/local /usr /opt /sw; do
 		dnl APR 1.0 tests
 		if test -r $i/bin/apr-1-config ; then
@@ -52,28 +60,22 @@ if test "$PHP_SVN" != "no"; then
 			break;
 		fi
 	done
+
 	if test "$apr_config_path" == ""; then
 		AC_MSG_ERROR([failed to find apr-config / apr-1-config])
 	fi
 
+	APR_VERSION=`$apr_config_path --version`
 	APR_INCLUDES=`$apr_config_path --includes --cppflags`
 	APR_LDFLAGS=`$apr_config_path --link-ld`
+
+	AC_MSG_RESULT(Found apr $APR_VERSION)
 
 	PHP_SVN_INCLUDES="$PHP_SVN_INCLUDES $APR_INCLUDES"
 	PHP_SVN_LDFLAGS="$PHP_SVN_LDFLAGS $APR_LDFLAGS"
 
-	AC_MSG_RESULT($PHP_SVN_INCLUDES)
-	AC_MSG_CHECKING([for svn libraries])
-	AC_MSG_RESULT($PHP_SVN_LDFLAGS)
-
-	PHP_CHECK_LIBRARY(svn_client-1, svn_client_move3,[
-		SVN_13="yes"
-	],
-	,-L$SVN_DIR/$PHP_LIBDIR)
-
-	if test "$SVN_13" == ""; then
-		AC_MSG_ERROR([failed to determine svn version or less than 1.3])
-	fi
+	echo libsvn includes: \"$PHP_SVN_INCLUDES\"
+	echo libsvn ldflags: \"$PHP_SVN_LDFLAGS\"
 
 	AC_DEFINE(HAVE_SVNLIB,1,[ ])
 
