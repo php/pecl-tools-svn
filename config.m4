@@ -27,7 +27,7 @@ if test "$PHP_SVN" != "no"; then
 		fi
 	done
 
-	if test "$PHP_SVN_LDFLAGS" == ""; then
+	if test "$PHP_SVN_LDFLAGS" = ""; then
 		AC_MSG_ERROR([failed to find svn_client.h])
 	fi
 
@@ -61,7 +61,7 @@ if test "$PHP_SVN" != "no"; then
 		fi
 	done
 
-	if test "$apr_config_path" == ""; then
+	if test "$apr_config_path" = ""; then
 		AC_MSG_ERROR([failed to find apr-config / apr-1-config])
 	fi
 
