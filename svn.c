@@ -1812,7 +1812,7 @@ PHP_FUNCTION(svn_repos_open)
 	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
 	path = svn_path_canonicalize(utf8_path, subpool);
 
-	err = svn_repos_open(&repos, path, SVN_G(pool));
+	err = svn_repos_open(&repos, path, subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -1824,9 +1824,9 @@ PHP_FUNCTION(svn_repos_open)
 		resource->repos = repos;
 		ZEND_REGISTER_RESOURCE(return_value, resource, le_svn_repos);
 	} else {
-		RETVAL_FALSE;
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
 	}
-	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -2474,10 +2474,10 @@ PHP_FUNCTION(svn_repos_create)
 	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
 	path = svn_path_canonicalize(utf8_path, subpool);
 
-	config_hash = replicate_zend_hash_to_apr_hash(config, SVN_G(pool) TSRMLS_CC);
-	fsconfig_hash = replicate_zend_hash_to_apr_hash(fsconfig, SVN_G(pool) TSRMLS_CC);
+	config_hash = replicate_zend_hash_to_apr_hash(config, subpool TSRMLS_CC);
+	fsconfig_hash = replicate_zend_hash_to_apr_hash(fsconfig, subpool TSRMLS_CC);
 
-	err = svn_repos_create(&repos, path, NULL, NULL, config_hash, fsconfig_hash, SVN_G(pool));
+	err = svn_repos_create(&repos, path, NULL, NULL, config_hash, fsconfig_hash, subpool);
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2489,9 +2489,9 @@ PHP_FUNCTION(svn_repos_create)
 		resource->repos = repos;
 		ZEND_REGISTER_RESOURCE(return_value, resource, le_svn_repos);
 	} else {
-		RETVAL_FALSE;
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
 	}
-	svn_pool_destroy(subpool);
 }
 /* }}} */
 
@@ -2930,6 +2930,7 @@ PHP_FUNCTION(svn_repos_fs_begin_txn_for_commit)
 
 		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
 	} else {
+		svn_pool_destroy(subpool);
 		RETURN_FALSE;
 	}
 }
