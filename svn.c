@@ -2143,16 +2143,15 @@ PHP_FUNCTION(svn_blame)
 
 	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
 	repos_url = svn_path_canonicalize(utf8_repos_url, subpool);
-
+	
+	start_revision.kind =  svn_opt_revision_number;
+	start_revision.value.number = 0;
+		
 	if (revision == -1) {
-		start_revision.kind =  svn_opt_revision_head;
 		end_revision.kind   =  svn_opt_revision_head;
 	} else {
-		start_revision.kind =  svn_opt_revision_number;
-		start_revision.value.number = revision ;
-
 		end_revision.kind   =  svn_opt_revision_number;
-		end_revision.value.number = revision ;
+		end_revision.value.number = revision;
 	}
 	peg_revision.kind = svn_opt_revision_unspecified;
 
