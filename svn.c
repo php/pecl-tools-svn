@@ -2069,8 +2069,17 @@ PHP_FUNCTION(svn_copy)
 	} else if (info) {
 		array_init(return_value);
 		add_next_index_long(return_value, info->revision);
-		add_next_index_string(return_value, (char*)info->date, 1);
-		add_next_index_string(return_value, (char*)info->author, 1);
+		if (info->date) {
+			add_next_index_string(return_value, (char*)info->date, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
+
+		if (info->author) {
+			add_next_index_string(return_value, (char*)info->author, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
 	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "commit didn't return any info");
 		RETVAL_FALSE;
@@ -2215,8 +2224,17 @@ PHP_FUNCTION(svn_delete)
 	} else if (info) {
 		array_init(return_value);
 		add_next_index_long(return_value, info->revision);
-		add_next_index_string(return_value, (char*)info->date, 1);
-		add_next_index_string(return_value, (char*)info->author, 1);
+		if (info->date) {
+			add_next_index_string(return_value, (char*)info->date, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
+
+		if (info->author) {
+			add_next_index_string(return_value, (char*)info->author, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
 	} else {
 		RETVAL_TRUE;
 	}
@@ -2262,8 +2280,17 @@ PHP_FUNCTION(svn_mkdir)
 	} else if (info) {
 		array_init(return_value);
 		add_next_index_long(return_value, info->revision);
-		add_next_index_string(return_value, (char*)info->date, 1);
-		add_next_index_string(return_value, (char*)info->author, 1);
+		if (info->date) {
+			add_next_index_string(return_value, (char*)info->date, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
+
+		if (info->author) {
+			add_next_index_string(return_value, (char*)info->author, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
 	} else {
 		RETVAL_TRUE;
 	}
@@ -2310,8 +2337,17 @@ PHP_FUNCTION(svn_move)
 	} else if (info) {
 		array_init(return_value);
 		add_next_index_long(return_value, info->revision);
-		add_next_index_string(return_value, (char*)info->date, 1);
-		add_next_index_string(return_value, (char*)info->author, 1);
+		if (info->date) {
+			add_next_index_string(return_value, (char*)info->date, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
+
+		if (info->author) {
+			add_next_index_string(return_value, (char*)info->author, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
 	} else {
 		RETVAL_TRUE;
 	}
@@ -2653,8 +2689,17 @@ PHP_FUNCTION(svn_commit)
 	} else if (info) {
 		array_init(return_value);
 		add_next_index_long(return_value, info->revision);
-		add_next_index_string(return_value, (char*)info->date, 1);
-		add_next_index_string(return_value, (char*)info->author, 1);
+		if (info->date) {
+			add_next_index_string(return_value, (char*)info->date, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
+
+		if (info->author) {
+			add_next_index_string(return_value, (char*)info->author, 1);
+		} else {
+			add_next_index_null(return_value);
+		}
 	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "commit didn't return any info");
 		RETVAL_FALSE;
