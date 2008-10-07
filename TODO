@@ -4,8 +4,6 @@ svn_propset
 svn_url_from_path
 svn_uuid_from_url
 svn_uuid_from_path
-svn_lock
-svn_unlock
 
 
 New 1.5 functions that need to be added:

@@ -146,6 +146,8 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_revert, NULL)
 	PHP_FE(svn_resolved, NULL)
 	PHP_FE(svn_commit, NULL)
+	PHP_FE(svn_lock, NULL)
+	PHP_FE(svn_unlock, NULL)
 	PHP_FE(svn_add, NULL)
 	PHP_FE(svn_status, NULL)
 	PHP_FE(svn_update, NULL)
@@ -2656,6 +2658,109 @@ PHP_FUNCTION(svn_commit)
 	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "commit didn't return any info");
 		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto bool svn_lock(string comment, mixed targets [, bool steal_lock])
+	Lock targets in the repository */
+PHP_FUNCTION(svn_lock)
+{
+	char *comment = NULL;
+	int comment_len, pathlen;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
+	zend_bool steal_lock = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	zval *targets = NULL;
+	apr_array_header_t *targets_array;
+
+	if (FAILURE == zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
+				&comment, &comment_len, &path, &pathlen, &steal_lock)) {
+		if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa|b",
+					&comment, &comment_len, &targets, &steal_lock)) {
+			return;
+		}
+	}
+
+	PHP_SVN_INIT_CLIENT();
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (path) {
+		svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		path = svn_path_canonicalize(utf8_path, subpool);
+
+		targets_array = apr_array_make (subpool, 1, sizeof(char *));
+		APR_ARRAY_PUSH(targets_array, const char *) = path;
+	} else {
+		/* TODO: need to canonicalize the array */
+		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
+	}
+
+	err = svn_client_lock(targets_array, comment, steal_lock, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
+/* {{{ proto bool svn_unlock(mixed targets [, bool break_lock])
+	Lock targets in the repository */
+PHP_FUNCTION(svn_unlock)
+{
+	int pathlen;
+	const char *path = NULL;
+	const char *utf8_path = NULL;
+	zend_bool break_lock = 0;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	zval *targets = NULL;
+	apr_array_header_t *targets_array;
+
+	if (FAILURE == zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
+				&path, &pathlen, &break_lock)) {
+		if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a|b",
+					&targets, &break_lock)) {
+			return;
+		}
+	}
+
+	PHP_SVN_INIT_CLIENT();
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (path) {
+		svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		path = svn_path_canonicalize(utf8_path, subpool);
+
+		targets_array = apr_array_make (subpool, 1, sizeof(char *));
+		APR_ARRAY_PUSH(targets_array, const char *) = path;
+	} else {
+		/* TODO: need to canonicalize the array */
+		targets_array = replicate_zend_hash_to_apr_array(targets, subpool TSRMLS_CC);
+	}
+
+	err = svn_client_unlock(targets_array, break_lock, SVN_G(ctx), subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
 	}
 
 	svn_pool_destroy(subpool);
