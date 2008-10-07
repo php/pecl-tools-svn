@@ -141,6 +141,7 @@ function_entry svn_functions[] = {
 	PHP_FE(svn_auth_set_parameter,	NULL)
 	PHP_FE(svn_auth_get_parameter,	NULL)
 	PHP_FE(svn_client_version, NULL)
+	PHP_FE(svn_config_ensure, NULL)
 	PHP_FE(svn_diff, NULL)
 	PHP_FE(svn_cleanup, NULL)
 	PHP_FE(svn_revert, NULL)
@@ -413,6 +414,44 @@ PHP_FUNCTION(svn_auth_set_parameter)
 	}
 
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), actual_value));
+}
+/* }}} */
+
+/* {{{ proto bool svn_config_ensure(string config_path)
+	Ensure that the specified path looks like a subversion config path.
+	This function will create skeleton files if required. */
+PHP_FUNCTION(svn_config_ensure)
+{
+	const char *config_path = NULL;
+	const char *utf8_path = NULL;
+	int config_path_len;
+	apr_pool_t *subpool;
+	svn_error_t *err;
+	
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s!", &config_path, &config_path_len)) {
+		return;
+	}
+
+	PHP_SVN_INIT_CLIENT();
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	if (config_path) {
+		svn_utf_cstring_to_utf8 (&utf8_path, config_path, subpool);
+		config_path = svn_path_canonicalize(utf8_path, subpool);
+	}
+
+	err = svn_config_ensure(config_path, subpool);
+	if (err) {
+		RETVAL_FALSE;
+	} else {
+		RETVAL_TRUE;
+	}
+
+	svn_pool_destroy(subpool);
 }
 /* }}} */
 
