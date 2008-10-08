@@ -328,10 +328,15 @@ static int init_svn_client(TSRMLS_D)
 	}
 
 	if ((err = svn_config_get_config(&SVN_G(ctx)->config, NULL, SVN_G(pool)))) {
-		php_svn_handle_error(err TSRMLS_CC);
-		svn_pool_destroy(SVN_G(pool));
-		SVN_G(pool) = NULL;
-		return 1;
+		if (err->apr_err == APR_EACCES) {
+			/* Should possible consider a notice here */
+			svn_error_clear(err);
+		} else {
+			php_svn_handle_error(err TSRMLS_CC);
+			svn_pool_destroy(SVN_G(pool));
+			SVN_G(pool) = NULL;
+			return 1;
+		}
 	}
 
 	SVN_G(ctx)->log_msg_func = php_svn_get_commit_log;
