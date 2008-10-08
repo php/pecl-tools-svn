@@ -32,6 +32,7 @@
 #include "ext/standard/info.h"
 #include "php_svn.h"
 
+#include "apr_version.h"
 #include "svn_pools.h"
 #include "svn_sorts.h"
 #include "svn_config.h"
@@ -506,8 +507,16 @@ PHP_MINIT_FUNCTION(svn)
 	zend_class_entry *ce_SvnWc;
 	zend_class_entry *ce_SvnWcSchedule;
 	zend_class_entry *ce_SvnNode;
+	apr_version_t apv;
 
 	apr_initialize();
+
+	/* Print something useful when old APR is used like that of Apache 2.0.x */
+	apr_version(&apv);
+	if (apv.major < APR_MAJOR_VERSION) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "libsvn was compiled against a newer version of APR than was loaded");
+	}
+
 	ZEND_INIT_MODULE_GLOBALS(svn, php_svn_init_globals, NULL);
 
 	INIT_CLASS_ENTRY(ce, "Svn", svn_methods);
