@@ -1386,7 +1386,7 @@ PHP_FUNCTION(svn_resolved)
 }
 /* }}} */
 
-static int replicate_hash(void *pDest, int num_args, va_list args, zend_hash_key *key)
+static int replicate_hash(void *pDest TSRMLS_DC, int num_args, va_list args, zend_hash_key *key)
 {
 	zval **val = (zval **)pDest;
 	apr_hash_t *hash = va_arg(args, apr_hash_t*);
@@ -1409,7 +1409,7 @@ static apr_hash_t *replicate_zend_hash_to_apr_hash(zval *arr, apr_pool_t *pool T
 
 	hash = apr_hash_make(pool);
 
-	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr), replicate_hash, 1, hash);
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr) TSRMLS_CC, replicate_hash, 1, hash);
 
 	return hash;
 }
@@ -2665,7 +2665,7 @@ PHP_FUNCTION(svn_repos_hotcopy)
 }
 /* }}} */
 
-static int replicate_array(void *pDest, int num_args, va_list args, zend_hash_key *key)
+static int replicate_array(void *pDest TSRMLS_DC, int num_args, va_list args, zend_hash_key *key)
 {
 	zval **val = (zval **)pDest;
 	apr_pool_t *pool = (apr_pool_t*)va_arg(args, apr_pool_t*);
@@ -2687,7 +2687,7 @@ static apr_array_header_t *replicate_zend_hash_to_apr_array(zval *arr, apr_pool_
 
 	if (!apr_arr) return NULL;
 
-	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr), replicate_array, 2, pool, apr_arr);
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(arr) TSRMLS_CC, replicate_array, 2, pool, apr_arr);
 
 	return apr_arr;
 }
