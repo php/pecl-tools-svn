@@ -1973,21 +1973,22 @@ PHP_FUNCTION(svn_info)
 }
 /* }}} */
 
-/* {{{ proto resource svn_export(string frompath, string topath [, bool working_copy = true])
+/* {{{ proto resource svn_export(string frompath, string topath [, bool working_copy = true  [, long revision = -1 ])
 	Export the contents of either a working copy or repository into a 'clean' directory.
-	If working_copy is true it will export uncommitted files from a working copy. */
+	If working_copy is true it will export uncommitted files from a working copy.
+    To export revisions, you must set working copy to false - the default is to export HEAD. */
 PHP_FUNCTION(svn_export)
 {
 	const char *from = NULL, *to = NULL;
 	const char *utf8_from_path = NULL, *utf8_to_path = NULL;
-	int fromlen, tolen;
+	int fromlen, tolen, revision_no = -1;
 	apr_pool_t *subpool;
 	zend_bool working_copy = 1;
 	svn_error_t *err;
 	svn_opt_revision_t revision, peg_revision;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b",
-				&from, &fromlen, &to, &tolen, &working_copy)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|bl",
+				&from, &fromlen, &to, &tolen, &working_copy, &revision_no )) {
 		return;
 	}
 
@@ -2007,7 +2008,12 @@ PHP_FUNCTION(svn_export)
 	if (working_copy) {
 		revision.kind = svn_opt_revision_working;
 	} else {
-		revision.kind = svn_opt_revision_head;
+		if (revision_no <= 0) {
+			revision.kind = svn_opt_revision_head;
+		} else {
+			revision.kind = svn_opt_revision_number;
+			revision.value.number = revision_no;
+		}
 	}
 
 	peg_revision.kind = svn_opt_revision_unspecified;
