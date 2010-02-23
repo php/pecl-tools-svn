@@ -796,7 +796,12 @@ PHP_FUNCTION(svn_cat)
 		goto cleanup;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
+
 	url = svn_path_canonicalize(utf8_url, subpool);
 
 	err = svn_opt_parse_path(&peg_revision, &true_path, url, subpool);
@@ -832,14 +837,14 @@ cleanup:
 /* }}} */
 
 
-/* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse]])
+/* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse [, bool peg]]])
 	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_ls)
 {
 	const char *repos_url = NULL;
 	const char *utf8_repos_url = NULL;
 	int repos_url_len,  revision_no = -1;
-	zend_bool recurse = 0;
+	zend_bool recurse = 0, peg = 0;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	apr_hash_t *dirents;
@@ -847,8 +852,8 @@ PHP_FUNCTION(svn_ls)
 	int i;
 	apr_pool_t *subpool;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lb",
-			&repos_url, &repos_url_len, &revision_no, &recurse) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lbb",
+			&repos_url, &repos_url_len, &revision_no, &recurse, &peg) == FAILURE) {
 		return;
 	}
 	PHP_SVN_INIT_CLIENT();
@@ -857,7 +862,14 @@ PHP_FUNCTION(svn_ls)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	repos_url = svn_path_canonicalize(utf8_repos_url, subpool);
 
 	if (revision_no <= 0) {
@@ -867,12 +879,24 @@ PHP_FUNCTION(svn_ls)
 		revision.value.number = revision_no ;
 	}
 
-	/* grab the most recent version of the website. */
-	err = svn_client_ls (&dirents,
-                repos_url,
-                &revision,
-                recurse,
-                SVN_G(ctx), subpool);
+	if (peg) {
+		svn_opt_revision_t peg_revision;
+		peg_revision.kind = svn_opt_revision_unspecified;
+		err = svn_client_ls2 (&dirents,
+			repos_url,
+			&peg_revision,
+			&revision,
+			recurse,
+			SVN_G(ctx), subpool);
+
+	} else {
+		err = svn_client_ls (&dirents,
+			repos_url,
+			&revision,
+			recurse,
+			SVN_G(ctx), subpool);
+
+	}
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -1049,7 +1073,12 @@ PHP_FUNCTION(svn_log)
 	}
 	RETVAL_FALSE;
 
-	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		svn_pool_destroy(subpool);
+		return;
+	}
 
 
 	if ((ZEND_NUM_ARGS() > 2) && (end_revision.value.number == svn_opt_revision_unspecified)) {
@@ -1215,8 +1244,21 @@ PHP_FUNCTION(svn_diff)
 			APR_CREATE|APR_READ|APR_WRITE|APR_EXCL|APR_DELONCLOSE,
 			SVN_G(pool));
 
-	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	if (err) {
+		apr_file_close(errfile);
+		apr_file_close(outfile);
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
+
+	err = svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	if (err) {
+		apr_file_close(errfile);
+		apr_file_close(outfile);
+		php_svn_handle_error(err TSRMLS_CC);
+		goto cleanup;
+	}
 
 	can_path1= svn_path_canonicalize(utf8_path1, subpool);
 	can_path2= svn_path_canonicalize(utf8_path2, subpool);
@@ -1259,6 +1301,7 @@ PHP_FUNCTION(svn_diff)
 		add_next_index_zval(return_value, t);
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1928,19 +1971,19 @@ static svn_error_t *info_func (void *baton, const char *path, const svn_info_t *
 	return NULL;
 }
 
-/* {{{ proto array svn_info(string path [, bool recurse = false])
+/* {{{ proto array svn_info(string path [, bool recurse = false [, int revision]])
 	Returns subversion information about a working copy. */
 PHP_FUNCTION(svn_info)
 {
 	const char *path = NULL, *utf8_path = NULL;
-	int pathlen;
+	int pathlen, revnum = -1;
 	apr_pool_t *subpool;
 	zend_bool recurse = 1;
 	svn_error_t *err;
 	svn_opt_revision_t peg_revision, revision;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
-				&path, &pathlen, &recurse)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bl",
+				&path, &pathlen, &recurse, &revnum)) {
 		return;
 	}
 
@@ -1951,14 +1994,30 @@ PHP_FUNCTION(svn_info)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		svn_pool_destroy(subpool);
+		return;
+	}
+
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	array_init(return_value);
-	peg_revision.kind = svn_opt_revision_unspecified;
+
 	revision.kind = svn_opt_revision_unspecified;
+	peg_revision.kind = svn_opt_revision_unspecified;
 
 	if (svn_path_is_url(path)) {
+		if (revnum <= 0) {
+			revision.kind = svn_opt_revision_head;
+		} else {
+			revision.kind = svn_opt_revision_number;
+			revision.value.number = revnum;
+		}
 		peg_revision.kind = svn_opt_revision_head;
 	}
 
