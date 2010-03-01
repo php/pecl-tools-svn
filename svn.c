@@ -2362,19 +2362,19 @@ PHP_FUNCTION(svn_delete)
 }
 /* }}} */
 
-/* {{{ proto mixed svn_mkdir(string path)
+/* {{{ proto mixed svn_mkdir(string path, string log_message)
 	Creates a directory in a working copy or repository. */
 PHP_FUNCTION(svn_mkdir)
 {
-	const char *path = NULL, *utf8_path = NULL;
-	int pathlen;
+	const char *path = NULL, *utf8_path = NULL, *log_message;
+	int pathlen, loglen;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 	svn_commit_info_t *info = NULL;
 	apr_array_header_t *targets;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
-					&path, &pathlen)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss",
+					&path, &pathlen, &log_message, &loglen)) {
 		return;
 	}
 
@@ -2385,7 +2385,15 @@ PHP_FUNCTION(svn_mkdir)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
+	}
+
+    SVN_G(ctx)->log_msg_baton = log;
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 
@@ -2395,23 +2403,27 @@ PHP_FUNCTION(svn_mkdir)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETVAL_FALSE;
-	} else if (info) {
-		array_init(return_value);
-		add_next_index_long(return_value, info->revision);
-		if (info->date) {
-			add_next_index_string(return_value, (char*)info->date, 1);
-		} else {
-			add_next_index_null(return_value);
-		}
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
+	}
 
-		if (info->author) {
-			add_next_index_string(return_value, (char*)info->author, 1);
-		} else {
-			add_next_index_null(return_value);
-		}
+	if (!info) {
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
+	}
+
+	array_init(return_value);
+	add_next_index_long(return_value, info->revision);
+	if (info->date) {
+		add_next_index_string(return_value, (char*)info->date, 1);
 	} else {
-		RETVAL_TRUE;
+		add_next_index_null(return_value);
+	}
+
+	if (info->author) {
+		add_next_index_string(return_value, (char*)info->author, 1);
+	} else {
+		add_next_index_null(return_value);
 	}
 
 	svn_pool_destroy(subpool);
