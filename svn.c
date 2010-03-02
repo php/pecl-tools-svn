@@ -2366,7 +2366,8 @@ PHP_FUNCTION(svn_delete)
 	Creates a directory in a working copy or repository. */
 PHP_FUNCTION(svn_mkdir)
 {
-	const char *path = NULL, *utf8_path = NULL, *log_message;
+	const char *path = NULL, *utf8_path = NULL;
+	char *log_message = NULL;
 	int pathlen, loglen;
 	apr_pool_t *subpool;
 	svn_error_t *err;
@@ -2393,13 +2394,15 @@ PHP_FUNCTION(svn_mkdir)
 		RETURN_FALSE;
 	}
 
-    SVN_G(ctx)->log_msg_baton = log;
+    SVN_G(ctx)->log_msg_baton = log_message;
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 
 	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_client_mkdir2(&info, targets, SVN_G(ctx), subpool);
+
+	SVN_G(ctx)->log_msg_baton = NULL;
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
