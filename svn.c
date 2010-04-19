@@ -53,7 +53,6 @@ ZEND_DECLARE_MODULE_GLOBALS(svn)
 		RETURN_FALSE;\
 	}
 
-
 static void php_svn_get_version(char *buf, int buflen);
 
 /* True global resources - no need for thread safety here */
