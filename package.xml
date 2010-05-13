@@ -30,29 +30,39 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    	<date>2008-10-09</date>
+    	<date>2010-05-13</date>
 	<version>
-		<release>0.5.0</release>
-		<api>0.5.0</api>
+		<release>1.0.0</release>
+		<api>1.0.0</api>
 	</version>
 
 	<stability>
-		<release>beta</release>
-		<api>beta</api>
+		<release>stable</release>
+		<api>stable</api>
 	</stability>
 
 	<license uri="http://www.php.net/license">PHP License</license>
 
 	<notes>
-	- Add svn_lock()/svn_unlock()
-	- Add svn_config_ensure() for setting up a .svn storage directory
-	- Disable password storing unless a password is explicitly set
-	- Allow svn_auth_set_parameter() to unset an option with NULL
-	- svn_blame() returned -1 for a revision number
-	- Fix segfault caused by using an already destroyed pool
-	- Fix segfault when certain data types aren't returned from a commit
-	- Add check on module load that the APR version matches.
-	- Fix fatal error when the location of the HOME enviromental variable can't be read
+Bumped release to stable, as not much is really changing and the API is pretty steady.
+
+
+- not handling SVN_REVISION_COMMITTED, SVN_REVISION_PREV, SVN_REVISION_BASE properly 
+  (svn_ls, svn_info, svn_update, svn_export) (Chung, Hyung-Hwan)
+- not handling utf8 failure  (Chung, Hyung-Hwan)
+ (svn_update, svn_export, svn_repos_create, svn_commit, svn_add, svn_status, svn_blame)
+- using a wrong type for the 'l' parameter that can cause a problem on architectures where 
+   sizeof(int) != sizeof(long) - ( svn_info, svn_ls ) (Chung, Hyung-Hwan)
+- multiple utf8 check fixes - (Chung, Hyung-Hwan)
+- add revision parameter to svn_propget and svn_proplist, do utf8 checks (Chung, Hyung-Hwan)
+- fix bug #17080 - svn_mkdir requires log message, also added utf8 checks (Ivan P)
+- req #14360 - support svn_export with revisions  (lostoutfrog)
+- php 5.3.0 TSRMLS_CC additions (Thomas Krause)
+- update package xml to v2 (Pierre Joye)
+
+
+
+
 	</notes>
   	<!-- /RELEASE SECTION -->
 
@@ -91,6 +101,53 @@
  	</extsrcrelease>
 
 	<changelog>
+          <release>
+		   	<date>2008-09-24</date>
+			<version>
+				<release>0.5.1</release>
+				<api>0.5.1</api>
+			</version>
+
+			<stability>
+				<release>beta</release>
+				<api>beta</api>
+			</stability>
+
+			<license uri="http://www.php.net/license">PHP License</license>
+
+			<notes>
+			fix for  libsvn 1.6.2
+			 
+			</notes>
+		</release>
+
+		<release>
+		   	<date>2008-10-09</date>
+			<version>
+				<release>0.5.0</release>
+				<api>0.5.0</api>
+			</version>
+
+			<stability>
+				<release>beta</release>
+				<api>beta</api>
+			</stability>
+
+			<license uri="http://www.php.net/license">PHP License</license>
+
+			<notes>
+			- Add svn_lock()/svn_unlock()
+			- Add svn_config_ensure() for setting up a .svn storage directory
+			- Disable password storing unless a password is explicitly set
+			- Allow svn_auth_set_parameter() to unset an option with NULL
+			- svn_blame() returned -1 for a revision number
+			- Fix segfault caused by using an already destroyed pool
+			- Fix segfault when certain data types aren't returned from a commit
+			- Add check on module load that the APR version matches.
+			- Fix fatal error when the location of the HOME enviromental variable can't be read
+			</notes>
+		</release>
+
 		<release>
 		    	<date>2008-06-24</date>
 			<version>
