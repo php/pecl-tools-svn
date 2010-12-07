@@ -2367,19 +2367,19 @@ PHP_FUNCTION(svn_delete)
 }
 /* }}} */
 
-/* {{{ proto mixed svn_mkdir(string path, string log_message)
-	Creates a directory in a working copy or repository. */
+/* {{{ proto mixed svn_mkdir(string path [, string log_message ])
+	Creates a directory in a working copy or repository. - log_message is optional for local mkdir */
 PHP_FUNCTION(svn_mkdir)
 {
 	const char *path = NULL, *utf8_path = NULL;
 	char *log_message = NULL;
-	int pathlen, loglen;
+	int pathlen, loglen = 0;
 	apr_pool_t *subpool;
 	svn_error_t *err;
 	svn_commit_info_t *info = NULL;
 	apr_array_header_t *targets;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss",
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s",
 					&path, &pathlen, &log_message, &loglen)) {
 		return;
 	}
@@ -2399,7 +2399,11 @@ PHP_FUNCTION(svn_mkdir)
 		RETURN_FALSE;
 	}
 
-	SVN_G(ctx)->log_msg_baton = log_message;
+	SVN_G(ctx)->log_msg_baton = NULL;
+
+	if (loglen) {
+		SVN_G(ctx)->log_msg_baton = log_message;
+	}
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 
@@ -2415,10 +2419,17 @@ PHP_FUNCTION(svn_mkdir)
 		RETURN_FALSE;
 	}
 
+        /* no error message set, info did not get returned, and no log was set - hence it's a local mkdir */
+	if (!loglen && !info) {
+		svn_pool_destroy(subpool);
+		RETURN_TRUE;
+	}
+	
 	if (!info) {
 		svn_pool_destroy(subpool);
 		RETURN_FALSE;
 	}
+        
 
 	array_init(return_value);
 	add_next_index_long(return_value, info->revision);
