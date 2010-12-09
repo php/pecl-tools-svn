@@ -30,9 +30,9 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    	<date>2010-05-13</date>
+    	<date>2010-12-09</date>
 	<version>
-		<release>1.0.0</release>
+		<release>1.0.1</release>
 		<api>1.0.0</api>
 	</version>
 
@@ -44,24 +44,12 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
 	<notes>
-Bumped release to stable, as not much is really changing and the API is pretty steady.
+Minor bug fix release
 
+   #18513 - svn_info( working_copy, false, SVN_REVISION_UNSPECIFIED ) gives you a svn_info on the local copy
+   #20440 - svn_mkdir on working copy log message is optional
 
-- not handling SVN_REVISION_COMMITTED, SVN_REVISION_PREV, SVN_REVISION_BASE properly 
-  (svn_ls, svn_info, svn_update, svn_export) (Chung, Hyung-Hwan)
-- not handling utf8 failure  (Chung, Hyung-Hwan)
- (svn_update, svn_export, svn_repos_create, svn_commit, svn_add, svn_status, svn_blame)
-- using a wrong type for the 'l' parameter that can cause a problem on architectures where 
-   sizeof(int) != sizeof(long) - ( svn_info, svn_ls ) (Chung, Hyung-Hwan)
-- multiple utf8 check fixes - (Chung, Hyung-Hwan)
-- add revision parameter to svn_propget and svn_proplist, do utf8 checks (Chung, Hyung-Hwan)
-- fix bug #17080 - svn_mkdir requires log message, also added utf8 checks (Ivan P)
-- req #14360 - support svn_export with revisions  (lostoutfrog)
-- php 5.3.0 TSRMLS_CC additions (Thomas Krause)
-- update package xml to v2 (Pierre Joye)
-
-
-
+ 
 
 	</notes>
   	<!-- /RELEASE SECTION -->
@@ -101,6 +89,45 @@ Bumped release to stable, as not much is really changing and the API is pretty s
  	</extsrcrelease>
 
 	<changelog>
+
+
+        <release>
+                <date>2010-05-13</date>
+	        <version>
+		        <release>1.0.0</release>
+		        <api>1.0.0</api>
+	        </version>
+
+	        <stability>
+		        <release>stable</release>
+		        <api>stable</api>
+	        </stability>
+
+	        <license uri="http://www.php.net/license">PHP License</license>
+
+	        <notes>
+Bumped release to stable, as not much is really changing and the API is pretty steady.
+
+
+- not handling SVN_REVISION_COMMITTED, SVN_REVISION_PREV, SVN_REVISION_BASE properly 
+  (svn_ls, svn_info, svn_update, svn_export) (Chung, Hyung-Hwan)
+- not handling utf8 failure  (Chung, Hyung-Hwan)
+ (svn_update, svn_export, svn_repos_create, svn_commit, svn_add, svn_status, svn_blame)
+- using a wrong type for the 'l' parameter that can cause a problem on architectures where 
+   sizeof(int) != sizeof(long) - ( svn_info, svn_ls ) (Chung, Hyung-Hwan)
+- multiple utf8 check fixes - (Chung, Hyung-Hwan)
+- add revision parameter to svn_propget and svn_proplist, do utf8 checks (Chung, Hyung-Hwan)
+- fix bug #17080 - svn_mkdir requires log message, also added utf8 checks (Ivan P)
+- req #14360 - support svn_export with revisions  (lostoutfrog)
+- php 5.3.0 TSRMLS_CC additions (Thomas Krause)
+- update package xml to v2 (Pierre Joye)
+
+
+
+
+	        </notes>
+
+        </release>
           <release>
 		   	<date>2008-09-24</date>
 			<version>
