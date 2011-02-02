@@ -96,7 +96,10 @@ static int le_svn_repos_fs_txn;
 static ZEND_RSRC_DTOR_FUNC(php_svn_repos_dtor)
 {
 	struct php_svn_repos *r = rsrc->ptr;
-	svn_pool_destroy(r->pool);
+	/* If root pool doesn't exist, then this resource's pool was already destroyed */
+	if (SVN_G(pool)) {
+		svn_pool_destroy(r->pool);
+	}
 	efree(r);
 }
 
