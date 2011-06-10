@@ -2314,20 +2314,20 @@ cleanup:
 }
 /* }}} */
 
-/* {{{ proto mixed svn_delete(string path [, bool force = true])
+/* {{{ proto mixed svn_delete(string path [, bool force = true [, string message ]])
 	Delete items from a working copy or repository. */
 PHP_FUNCTION(svn_delete)
 {
-	const char *path = NULL, *utf8_path = NULL;
-	int pathlen;
+	const char *path = NULL, *utf8_path = NULL, *logmsg = NULL;
+	int pathlen, logmsg_len;
 	apr_pool_t *subpool;
 	zend_bool force = 0;
 	svn_error_t *err;
 	svn_commit_info_t *info = NULL;
 	apr_array_header_t *targets;
-
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b",
-					&path, &pathlen, &force)) {
+         
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bs",
+					&path, &pathlen, &force, &logmsg, &logmsg_len)) {
 		return;
 	}
 
@@ -2341,9 +2341,13 @@ PHP_FUNCTION(svn_delete)
 	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
-
 	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
+	
+        SVN_G(ctx)->log_msg_baton = logmsg; 
+
 	err = svn_client_delete2(&info, targets, force, SVN_G(ctx), subpool);
+
+        SVN_G(ctx)->log_msg_baton = NULL; 
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
