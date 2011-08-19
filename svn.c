@@ -3678,21 +3678,20 @@ PHP_FUNCTION(svn_fs_is_dir)
 /* }}} */
 
 /* {{{ proto bool svn_fs_change_node_prop(resource root, string path, string name, string value)
-	Change a node's property's value, or add/delete a property. Returns true on success. */
+	Change a node's property's value, or add/delete a property. (use NULL as value to delete) Returns true on success. */
 PHP_FUNCTION(svn_fs_change_node_prop)
 {
-	zval *zroot;
+	zval *zroot, *value;
 	struct php_svn_fs_root *root = NULL;
 	const char *path = NULL, *utf8_path = NULL;
-	char *name, *value;
+	char *name;
 	int path_len, name_len, value_len;
-	svn_string_t *svn_value;
+	svn_string_t *svn_value = NULL;
 	svn_error_t *err;
 	apr_pool_t *subpool;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rsss",
-				&zroot, &path, &path_len, &name, &name_len,
-				&value, &value_len)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rssz",
+				&zroot, &path, &path_len, &name, &name_len, &value)) {
 		RETURN_FALSE;
 	}
 
@@ -3706,9 +3705,12 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
 
-	svn_value = emalloc(sizeof(*svn_value));
-	svn_value->data = value;
-	svn_value->len = value_len;
+	if (Z_TYPE_P(value) != IS_NULL) {
+		convert_to_string_ex(&value);
+		svn_value = emalloc(sizeof(*svn_value));
+		svn_value->data = Z_STRVAL_P(value);
+		svn_value->len  = Z_STRLEN_P(value);
+	}
 
 	err = svn_fs_change_node_prop(root->root, path, name, svn_value,
 			root->repos->pool);
