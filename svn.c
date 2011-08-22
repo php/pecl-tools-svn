@@ -2140,7 +2140,7 @@ PHP_FUNCTION(svn_switch)
 }
 /* }}} */
 
-/* {{{ proto resource svn_copy(string log, string src_path, string destination_path [, bool working_copy = true])
+/* {{{ proto resource svn_copy(string log, string src_path, string destination_path [, bool working_copy = true [, int revision = -1]])
 	Copies src path to destination path in a working copy or respository. */
 PHP_FUNCTION(svn_copy)
 {
@@ -2148,14 +2148,16 @@ PHP_FUNCTION(svn_copy)
 	const char *utf8_src_path = NULL, *utf8_dst_path = NULL;
 	char *log;
 	int src_pathlen, dst_pathlen, loglen;
+	long revnum = -1;
 	apr_pool_t *subpool;
 	zend_bool working_copy = 1;
 	svn_error_t *err;
 	svn_commit_info_t *info = NULL;
 	svn_opt_revision_t revision;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss|b",
-					&log, &loglen, &src_path, &src_pathlen, &dst_path, &dst_pathlen, &working_copy)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss|bl",
+					&log, &loglen, &src_path, &src_pathlen, &dst_path, &dst_pathlen,
+					&working_copy, &revnum)) {
 		return;
 	}
 
@@ -2172,10 +2174,12 @@ PHP_FUNCTION(svn_copy)
 	src_path = svn_path_canonicalize(utf8_src_path, subpool);
 	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
 
+	revision.value.number = revnum;
+
 	if (working_copy) {
 		revision.kind = svn_opt_revision_working;
 	} else {
-		revision.kind = svn_opt_revision_head;
+		revision.kind = php_svn_get_revision_kind(revision);
 	}
 
 	SVN_G(ctx)->log_msg_baton = log;
