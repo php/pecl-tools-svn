@@ -273,7 +273,7 @@ static void php_svn_handle_error(svn_error_t *error TSRMLS_DC)
 
 	smart_str_appendl(&s, "\n", 1);
 	smart_str_0(&s);
-	php_error_docref(NULL TSRMLS_CC, E_WARNING, s.c);
+	php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", s.c);
 	smart_str_free(&s);
 }
 
