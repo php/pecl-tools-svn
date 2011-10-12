@@ -126,7 +126,7 @@ static ZEND_RSRC_DTOR_FUNC(php_svn_repos_fs_txn_dtor)
 
 #define SVN_STATIC_ME(name) ZEND_FENTRY(name, ZEND_FN(svn_ ## name), NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 /** Fixme = this list needs padding out... */
-static function_entry svn_methods[] = {
+static zend_function_entry svn_methods[] = {
 	SVN_STATIC_ME(cat)
 	SVN_STATIC_ME(checkout)
 	SVN_STATIC_ME(log)
@@ -137,7 +137,7 @@ static function_entry svn_methods[] = {
 
 
 /* {{{ svn_functions[] */
-function_entry svn_functions[] = {
+zend_function_entry svn_functions[] = {
 	PHP_FE(svn_checkout,		NULL)
 	PHP_FE(svn_cat,			NULL)
 	PHP_FE(svn_ls,			NULL)
