@@ -43,6 +43,7 @@
 #include "svn_utf.h"
 #include "svn_time.h"
 #include "svn_props.h"
+#include "svn_version.h"
 
 ZEND_DECLARE_MODULE_GLOBALS(svn)
 
