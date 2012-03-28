@@ -32,7 +32,7 @@
 	<!-- RELEASE SECTION -->
     	<date>2010-12-09</date>
 	<version>
-		<release>1.0.1</release>
+		<release>1.0.2</release>
 		<api>1.0.0</api>
 	</version>
 
@@ -44,11 +44,18 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
 	<notes>
-Minor bug fix release
+Minor bug fix / feature release
 
-   #18513 - svn_info( working_copy, false, SVN_REVISION_UNSPECIFIED ) gives you a svn_info on the local copy
-   #20440 - svn_mkdir on working copy log message is optional
-
+        Changes:
+        #60583 - compile failing due to missing definition of svn_version_t in newer releases of libsvn
+        #59976 (svn build fails on PHP5.4)
+        #15505 - warning on errors
+        ------  support for peg revisions in checkout, ls, log, blame, info, proplist, propget
+                extra error checks in checkout - thanks to Hyung-Hwan Chung
+        #22758 - support specifying revision in svn_copy (he dot chen at zte dot com dot cn)
+        #23649 - allow deletion of properties by using NULL as value (patch by Jonas Zeiger)
+        #22754 - add support for svn_delete
+        #22100 - segfault on shutdown when using multiple repositories - patch by jimmy at velsoft
  
 
 	</notes>
@@ -87,9 +94,36 @@ Minor bug fix release
   		<configureoption default="autodetect" name="with-svn" prompt="Please provide the prefix of Subversion installation" />
   		<configureoption default="autodetect" name="with-svn-apr" prompt="Please provide the prefix of the APR installation used with Subversion" />
  	</extsrcrelease>
+        <changelog>
 
-	<changelog>
+        <release>
 
+
+                <date>2010-12-09</date>
+	        <version>
+		        <release>1.0.1</release>
+		        <api>1.0.0</api>
+	        </version>
+
+	        <stability>
+		        <release>stable</release>
+		        <api>stable</api>
+	        </stability>
+
+	        <license uri="http://www.php.net/license">PHP License</license>
+
+	        <notes>
+        Minor bug fix release
+
+           #18513 - svn_info( working_copy, false, SVN_REVISION_UNSPECIFIED ) gives you a svn_info on the local copy
+           #20440 - svn_mkdir on working copy log message is optional
+
+         
+
+	        </notes>
+
+
+        </release>
 
         <release>
                 <date>2010-05-13</date>

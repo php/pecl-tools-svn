@@ -3258,7 +3258,7 @@ PHP_FUNCTION(svn_update)
 
 	rev.value.number = revno;
 	rev.kind = php_svn_get_revision_kind (rev);
-	
+	 
 	err = svn_client_update(&result_rev, path, &rev, recurse,
 			SVN_G(ctx), subpool);
 
