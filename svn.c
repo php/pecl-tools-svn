@@ -264,7 +264,9 @@ static void php_svn_handle_error(svn_error_t *error TSRMLS_DC)
 		svn_strerror(itr->apr_err, buf, sizeof(buf));
 		smart_str_appendl(&s, buf, strlen(buf));
 		smart_str_appendl(&s, ") ", 2);
-		smart_str_appendl(&s, itr->message, strlen(itr->message));
+		if (itr->message) {
+			smart_str_appendl(&s, itr->message, strlen(itr->message));
+		}
 
 		if (itr->child) {
 			smart_str_appendl(&s, "\n", 1);
