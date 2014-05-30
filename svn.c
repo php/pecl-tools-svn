@@ -50,10 +50,10 @@ ZEND_DECLARE_MODULE_GLOBALS(svn)
 /* custom property for ignoring SSL cert verification errors */
 #define PHP_SVN_AUTH_PARAM_IGNORE_SSL_VERIFY_ERRORS "php:svn:auth:ignore-ssl-verify-errors"
 #define PHP_SVN_INIT_CLIENT() \
-	if (init_svn_client(TSRMLS_C)) {\
-		RETURN_FALSE;\
-	}
-
+	do { \
+		if (init_svn_client(TSRMLS_C)) RETURN_FALSE; \
+	} while (0)
+ 
 static void php_svn_get_version(char *buf, int buflen);
 
 /* True global resources - no need for thread safety here */
@@ -398,7 +398,7 @@ PHP_FUNCTION(svn_auth_get_parameter)
 
 	value = svn_auth_get_parameter(SVN_G(ctx)->auth_baton, key);
 	if (value) {
-		RETURN_STRING((char*)value, 1);
+		RETVAL_STRING((char*)value, 1);
 	}
 }
 /* }}} */
@@ -426,6 +426,7 @@ PHP_FUNCTION(svn_auth_set_parameter)
 	}
 
 	svn_auth_set_parameter(SVN_G(ctx)->auth_baton, apr_pstrdup(SVN_G(pool), key), apr_pstrdup(SVN_G(pool), actual_value));
+
 }
 /* }}} */
 
@@ -452,7 +453,13 @@ PHP_FUNCTION(svn_config_ensure)
 	}
 
 	if (config_path) {
-		svn_utf_cstring_to_utf8 (&utf8_path, config_path, subpool);
+		err = svn_utf_cstring_to_utf8 (&utf8_path, config_path, subpool);
+		if (err) {
+			php_svn_handle_error(err TSRMLS_CC);
+			RETVAL_FALSE;
+			goto cleanup;
+		}
+
 		config_path = svn_path_canonicalize(utf8_path, subpool);
 	}
 
@@ -463,7 +470,9 @@ PHP_FUNCTION(svn_config_ensure)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -493,12 +502,17 @@ PHP_FUNCTION(svn_import)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_client_import(&commit_info_p, path, url, nonrecursive,
 			SVN_G(ctx), subpool);
-
 	if (err) {
 		php_svn_handle_error (err TSRMLS_CC);
 		RETVAL_FALSE;
@@ -506,8 +520,8 @@ PHP_FUNCTION(svn_import)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
-
 }
 /* }}} */
 
@@ -651,7 +665,6 @@ PHP_MINIT_FUNCTION(svn)
 	REGISTER_LONG_CONSTANT("SVN_WC_SCHEDULE_DELETE", svn_wc_schedule_delete, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SVN_WC_SCHEDULE_REPLACE", svn_wc_schedule_replace, CONST_CS|CONST_PERSISTENT);
 
-
 	le_svn_repos = zend_register_list_destructors_ex(php_svn_repos_dtor,
 			NULL, "svn-repos", module_number);
 
@@ -698,7 +711,6 @@ PHP_MINFO_FUNCTION(svn)
 	*/
 }
 /* }}} */
-
 
 /* {{{ proto bool svn_checkout(string repository_url, string target_path [, int revision = SVN_REVISION_HEAD [, int flags]])
 	Checks out a particular revision from a repository into target_path. */
@@ -796,6 +808,7 @@ PHP_FUNCTION(svn_cat)
 		&url, &url_len, &revision.value.number) == FAILURE) {
 		return;
 	}
+
 	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
 	if (!subpool) {
@@ -849,7 +862,7 @@ PHP_FUNCTION(svn_cat)
 	}
 
 	retdata[size] = '\0';
-	RETURN_STRINGL(retdata, size, 0);
+	RETVAL_STRINGL(retdata, size, 0);
 	retdata = NULL;
 
 cleanup:
@@ -887,7 +900,6 @@ PHP_FUNCTION(svn_ls)
 	}
 
 	err = svn_utf_cstring_to_utf8 (&utf8_repos_url, repos_url, subpool);
-
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
@@ -957,7 +969,12 @@ PHP_FUNCTION(svn_ls)
 			timestr[0] = '\0';
 
 		/* we need it in UTF-8. */
-		svn_utf_cstring_to_utf8 (&utf8_timestr, timestr, subpool);
+		err = svn_utf_cstring_to_utf8 (&utf8_timestr, timestr, subpool);
+		if (err) {
+			php_svn_handle_error(err TSRMLS_CC);
+			RETVAL_FALSE;
+			goto cleanup;
+		}
 
 		MAKE_STD_ZVAL(row);
 		array_init(row);
@@ -976,12 +993,11 @@ PHP_FUNCTION(svn_ls)
 
 cleanup:
 	svn_pool_destroy(subpool);
-
 }
 /* }}} */
 
 static svn_error_t *
-php_svn_log_receiver (	void *ibaton,
+php_svn_log_receiver (void *ibaton,
 				apr_hash_t *changed_paths,
 				svn_revnum_t rev,
 				const char *author,
@@ -1088,13 +1104,12 @@ PHP_FUNCTION(svn_log)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
-	RETVAL_FALSE;
 
 	err = svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		svn_pool_destroy(subpool);
-		return;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
 
 	if ((ZEND_NUM_ARGS() > 2) && (end_revision.value.number == svn_opt_revision_unspecified)) {
@@ -1116,8 +1131,8 @@ PHP_FUNCTION(svn_log)
 	err = svn_opt_parse_path(&peg_revision, &true_path, url, subpool);
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		svn_pool_destroy(subpool);
-		return;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
@@ -1141,8 +1156,10 @@ PHP_FUNCTION(svn_log)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+		goto cleanup;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1348,7 +1365,13 @@ PHP_FUNCTION(svn_cleanup)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_workingdir, workingdir, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_workingdir, workingdir, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	workingdir = svn_path_canonicalize(utf8_workingdir, subpool);
 
 	err = svn_client_cleanup(workingdir, SVN_G(ctx), subpool);
@@ -1356,11 +1379,14 @@ PHP_FUNCTION(svn_cleanup)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+		goto cleanup;
 	} else {
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -1384,9 +1410,13 @@ PHP_FUNCTION(svn_revert)
 	if (!subpool) {
 		RETURN_FALSE;
 	}
-	RETVAL_FALSE;
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 
@@ -1401,11 +1431,14 @@ PHP_FUNCTION(svn_revert)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+		goto cleanup;
 	} else {
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -1430,7 +1463,12 @@ PHP_FUNCTION(svn_resolved)
 	}
 	RETVAL_FALSE;
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	path = svn_path_canonicalize(utf8_path, subpool);
 
@@ -1443,11 +1481,14 @@ PHP_FUNCTION(svn_resolved)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+		goto cleanup;
 	} else {
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -1648,7 +1689,13 @@ PHP_FUNCTION(svn_fs_file_contents)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_file_contents(&svnstm, fsroot->root, path, SVN_G(pool));
@@ -1661,6 +1708,8 @@ PHP_FUNCTION(svn_fs_file_contents)
 		stm = php_stream_alloc(&php_svn_stream_ops, svnstm, 0, "r");
 		php_stream_to_zval(stm, return_value);
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1690,7 +1739,13 @@ PHP_FUNCTION(svn_fs_file_length)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_file_length(&len, fsroot->root, path, subpool);
@@ -1702,6 +1757,8 @@ PHP_FUNCTION(svn_fs_file_length)
 		/* TODO: 64 bit */
 		RETVAL_LONG(len);
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1732,7 +1789,13 @@ PHP_FUNCTION(svn_fs_node_prop)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_node_prop(&val, fsroot->root, path, propname, subpool);
@@ -1747,6 +1810,8 @@ PHP_FUNCTION(svn_fs_node_prop)
 			RETVAL_EMPTY_STRING();
 		}
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1777,7 +1842,13 @@ PHP_FUNCTION(svn_fs_node_created_rev)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_node_created_rev(&rev, fsroot->root, path, subpool);
@@ -1788,6 +1859,8 @@ PHP_FUNCTION(svn_fs_node_created_rev)
 	} else {
 		RETVAL_LONG(rev);
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1822,7 +1895,13 @@ PHP_FUNCTION(svn_fs_dir_entries)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_dir_entries(&hash, fsroot->root, path, subpool);
@@ -1838,6 +1917,8 @@ PHP_FUNCTION(svn_fs_dir_entries)
 			add_assoc_long(return_value, (char*)pun.ent->name, pun.ent->kind);
 		}
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1867,7 +1948,13 @@ PHP_FUNCTION(svn_fs_check_path)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_fs_check_path(&kind, fsroot->root, path, subpool);
@@ -1879,6 +1966,7 @@ PHP_FUNCTION(svn_fs_check_path)
 		RETVAL_LONG(kind);
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -1930,7 +2018,13 @@ PHP_FUNCTION(svn_repos_open)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		svn_pool_destroy(subpool);
+		RETURN_FALSE;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_repos_open(&repos, path, subpool);
@@ -2054,6 +2148,7 @@ PHP_FUNCTION(svn_info)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2121,6 +2216,7 @@ PHP_FUNCTION(svn_export)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2148,8 +2244,18 @@ PHP_FUNCTION(svn_switch)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_url, url, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	path = svn_path_canonicalize(utf8_path, subpool);
 	url = svn_path_canonicalize(utf8_url, subpool);
@@ -2169,7 +2275,9 @@ PHP_FUNCTION(svn_switch)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2201,8 +2309,18 @@ PHP_FUNCTION(svn_copy)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	src_path = svn_path_canonicalize(utf8_src_path, subpool);
 	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
@@ -2242,7 +2360,9 @@ PHP_FUNCTION(svn_copy)
 		RETVAL_FALSE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2351,10 +2471,12 @@ PHP_FUNCTION(svn_blame)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+		goto cleanup;
 	}
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2377,21 +2499,23 @@ PHP_FUNCTION(svn_delete)
 
 	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
-
 	if (!subpool) {
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	targets = apr_array_make (subpool, 1, sizeof(char *));
 	APR_ARRAY_PUSH(targets, const char *) = svn_path_canonicalize(utf8_path, subpool);
 	
-        SVN_G(ctx)->log_msg_baton = logmsg; 
-
+	SVN_G(ctx)->log_msg_baton = logmsg; 
 	err = svn_client_delete2(&info, targets, force, SVN_G(ctx), subpool);
-
-        SVN_G(ctx)->log_msg_baton = NULL; 
+	SVN_G(ctx)->log_msg_baton = NULL; 
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
@@ -2414,6 +2538,7 @@ PHP_FUNCTION(svn_delete)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -2443,11 +2568,10 @@ PHP_FUNCTION(svn_mkdir)
 	}
 
 	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
-
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		svn_pool_destroy(subpool);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
 
 	SVN_G(ctx)->log_msg_baton = NULL;
@@ -2466,21 +2590,20 @@ PHP_FUNCTION(svn_mkdir)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		svn_pool_destroy(subpool);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
 
-        /* no error message set, info did not get returned, and no log was set - hence it's a local mkdir */
+	/* no error message set, info did not get returned, and no log was set - hence it's a local mkdir */
 	if (!loglen && !info) {
-		svn_pool_destroy(subpool);
-		RETURN_TRUE;
+		RETVAL_TRUE;
+		goto cleanup;
 	}
 	
 	if (!info) {
-		svn_pool_destroy(subpool);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
-        
 
 	array_init(return_value);
 	add_next_index_long(return_value, info->revision);
@@ -2496,6 +2619,7 @@ PHP_FUNCTION(svn_mkdir)
 		add_next_index_null(return_value);
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -2524,8 +2648,18 @@ PHP_FUNCTION(svn_move)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	src_path = svn_path_canonicalize(utf8_src_path, subpool);
 	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
@@ -2553,7 +2687,9 @@ PHP_FUNCTION(svn_move)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2635,6 +2771,7 @@ PHP_FUNCTION(svn_proplist)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2660,7 +2797,6 @@ PHP_FUNCTION(svn_propget)
 
 	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
-
 	if (!subpool) {
 		RETURN_FALSE;
 	}
@@ -2711,6 +2847,7 @@ PHP_FUNCTION(svn_propget)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2737,13 +2874,12 @@ PHP_FUNCTION(svn_repos_create)
 
 	PHP_SVN_INIT_CLIENT();
 	subpool = svn_pool_create(SVN_G(pool));
-	if (!subpool) {
+	if (!subpool) {	
 		RETURN_FALSE;
 	}
 
 	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
-	if (err)
-	{
+	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		svn_pool_destroy(subpool);
 		RETURN_FALSE;
@@ -2793,7 +2929,12 @@ PHP_FUNCTION(svn_repos_recover)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) { 
+		php_svn_handle_error(err TSRMLS_CC); 
+		RETVAL_FALSE; 
+		goto cleanup; 
+	} 
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	err = svn_repos_recover2(path, 0, NULL, NULL, subpool);
@@ -2805,7 +2946,9 @@ PHP_FUNCTION(svn_repos_recover)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2831,8 +2974,18 @@ PHP_FUNCTION(svn_repos_hotcopy)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_src_path, src_path, subpool);
+	if (err) { 
+		php_svn_handle_error(err TSRMLS_CC); 
+		RETVAL_FALSE; 
+		goto cleanup; 
+	} 
+	err = svn_utf_cstring_to_utf8 (&utf8_dst_path, dst_path, subpool);
+	if (err) { 
+		php_svn_handle_error(err TSRMLS_CC); 
+		RETVAL_FALSE; 
+		goto cleanup; 
+	} 
 
 	src_path = svn_path_canonicalize(utf8_src_path, subpool);
 	dst_path = svn_path_canonicalize(utf8_dst_path, subpool);
@@ -2846,7 +2999,9 @@ PHP_FUNCTION(svn_repos_hotcopy)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -2950,6 +3105,7 @@ PHP_FUNCTION(svn_commit)
 	}
 
 cleanup:
+
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -2983,7 +3139,12 @@ PHP_FUNCTION(svn_lock)
 	}
 
 	if (path) {
-		svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		if (err) {
+			php_svn_handle_error(err TSRMLS_CC);
+			RETVAL_FALSE;
+			goto cleanup;
+		}
 		path = svn_path_canonicalize(utf8_path, subpool);
 
 		targets_array = apr_array_make (subpool, 1, sizeof(char *));
@@ -3002,7 +3163,9 @@ PHP_FUNCTION(svn_lock)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -3034,7 +3197,12 @@ PHP_FUNCTION(svn_unlock)
 	}
 
 	if (path) {
-		svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+		if (err) {
+			php_svn_handle_error(err TSRMLS_CC);
+			RETVAL_FALSE;
+			goto cleanup;
+		}
 		path = svn_path_canonicalize(utf8_path, subpool);
 
 		targets_array = apr_array_make (subpool, 1, sizeof(char *));
@@ -3053,7 +3221,9 @@ PHP_FUNCTION(svn_unlock)
 		RETVAL_TRUE;
 	}
 
+cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -3099,6 +3269,7 @@ PHP_FUNCTION(svn_add)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -3211,8 +3382,6 @@ PHP_FUNCTION(svn_status)
 		SVN_G(ctx),
 		subpool);
 
-
-
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
@@ -3220,6 +3389,7 @@ PHP_FUNCTION(svn_status)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -3273,6 +3443,7 @@ PHP_FUNCTION(svn_update)
 
 cleanup:
 	svn_pool_destroy(subpool);
+
 }
 /* }}} */
 
@@ -3435,7 +3606,12 @@ PHP_FUNCTION(svn_fs_make_file)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3448,6 +3624,8 @@ PHP_FUNCTION(svn_fs_make_file)
 	} else {
 		RETVAL_TRUE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3473,7 +3651,12 @@ PHP_FUNCTION(svn_fs_make_dir)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3486,6 +3669,8 @@ PHP_FUNCTION(svn_fs_make_dir)
 	} else {
 		RETVAL_TRUE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3514,7 +3699,12 @@ PHP_FUNCTION(svn_fs_apply_text)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3523,7 +3713,8 @@ PHP_FUNCTION(svn_fs_apply_text)
 
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto cleanup;
 	}
 
 	if (stream_p) {
@@ -3533,6 +3724,8 @@ PHP_FUNCTION(svn_fs_apply_text)
 	} else {
 		RETVAL_FALSE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3560,8 +3753,18 @@ PHP_FUNCTION(svn_fs_copy)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_from_path, from_path, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_to_path, to_path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_from_path, from_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_to_path, to_path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	from_path = svn_path_canonicalize(utf8_from_path, subpool);
 	to_path = svn_path_canonicalize(utf8_to_path, subpool);
@@ -3577,6 +3780,8 @@ PHP_FUNCTION(svn_fs_copy)
 	} else {
 		RETVAL_TRUE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3602,7 +3807,12 @@ PHP_FUNCTION(svn_fs_delete)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3615,6 +3825,8 @@ PHP_FUNCTION(svn_fs_delete)
 	} else {
 		RETVAL_TRUE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3679,7 +3891,13 @@ PHP_FUNCTION(svn_fs_is_file)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3692,6 +3910,8 @@ PHP_FUNCTION(svn_fs_is_file)
 	} else {
 		RETVAL_BOOL(is_file);
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3718,7 +3938,12 @@ PHP_FUNCTION(svn_fs_is_dir)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3731,6 +3956,8 @@ PHP_FUNCTION(svn_fs_is_dir)
 	} else {
 		RETVAL_BOOL(is_dir);
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3758,7 +3985,12 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path, path, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 	path = svn_path_canonicalize(utf8_path, subpool);
 
 	ZEND_FETCH_RESOURCE(root, struct php_svn_fs_root *, &zroot, -1, "svn-fs-root", le_svn_fs_root);
@@ -3779,6 +4011,8 @@ PHP_FUNCTION(svn_fs_change_node_prop)
 	} else {
 		RETVAL_TRUE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3807,8 +4041,18 @@ PHP_FUNCTION(svn_fs_contents_changed)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	path1 = svn_path_canonicalize(utf8_path1, subpool);
 	path2 = svn_path_canonicalize(utf8_path2, subpool);
@@ -3827,6 +4071,8 @@ PHP_FUNCTION(svn_fs_contents_changed)
 	} else {
 		RETVAL_FALSE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
@@ -3855,8 +4101,18 @@ PHP_FUNCTION(svn_fs_props_changed)
 		RETURN_FALSE;
 	}
 
-	svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
-	svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	err = svn_utf_cstring_to_utf8 (&utf8_path1, path1, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
+	err = svn_utf_cstring_to_utf8 (&utf8_path2, path2, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+		goto cleanup;
+	}
 
 	path1 = svn_path_canonicalize(utf8_path1, subpool);
 	path2 = svn_path_canonicalize(utf8_path2, subpool);
@@ -3875,6 +4131,8 @@ PHP_FUNCTION(svn_fs_props_changed)
 	} else {
 		RETVAL_FALSE;
 	}
+
+cleanup:
 	svn_pool_destroy(subpool);
 }
 /* }}} */
