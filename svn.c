@@ -197,6 +197,8 @@ zend_function_entry svn_functions[] = {
 	PHP_FE(svn_fs_contents_changed, NULL)
 	PHP_FE(svn_fs_props_changed, NULL)
 	PHP_FE(svn_fs_abort_txn, NULL)
+	PHP_FE(svn_fs_open_txn, NULL)
+	PHP_FE(svn_fs_txn_prop, NULL)
 
 	{NULL, NULL, NULL}
 };
@@ -1549,6 +1551,9 @@ PHP_FUNCTION(svn_fs_revision_prop)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+	} else if (!str) {
+		/* the property is not found. return an empty string */
+		RETVAL_STRINGL("", 0, 1);
 	} else {
 		RETVAL_STRINGL((char*)str->data, str->len, 1);
 	}
@@ -1703,6 +1708,9 @@ PHP_FUNCTION(svn_fs_file_contents)
 	if (err) {
 		php_svn_handle_error(err TSRMLS_CC);
 		RETVAL_FALSE;
+	} else if (!str) {
+		/* the property is not found. return an empty string */
+		RETVAL_STRINGL("", 0, 1);
 	} else {
 		php_stream *stm;
 		stm = php_stream_alloc(&php_svn_stream_ops, svnstm, 0, "r");
@@ -4162,6 +4170,92 @@ PHP_FUNCTION(svn_fs_abort_txn)
 	}
 }
 /* }}} */
+
+/* {{{ proto resource svn_fs_open_txn(resource fs, string name)
+	Opens a transaction, returns a transaction resource on success, false otherwise */
+PHP_FUNCTION(svn_fs_open_txn)
+{
+	zval *zfs;
+	struct php_svn_fs *fs;
+	zval *ztxn;
+	struct php_svn_repos_fs_txn *txn;
+	svn_error_t *err;
+	const char *name = NULL;
+	int name_len;
+	apr_pool_t *subpool;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&zfs, &name, &name_len)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(fs, struct php_svn_fs *, &zfs, -1, "svn-fs", le_svn_fs);
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	err = svn_fs_open_txn (&txn, fs->fs, name, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else if (txn) {
+		struct php_svn_repos_fs_txn *new_txn;
+
+		new_txn = emalloc(sizeof(*new_txn));
+		new_txn->repos = fs->repos;
+		zend_list_addref(fs->repos->rsrc_id);
+		new_txn->txn = txn;
+
+		ZEND_REGISTER_RESOURCE(return_value, new_txn, le_svn_repos_fs_txn);
+	} else {
+		RETVAL_FALSE;
+	}
+
+	svn_pool_destroy (subpool);
+}
+/* }}} */
+
+/* {{{ proto string svn_fs_txn_prop(resource txn, string propname)
+	Fetches the value of property propname at a transaction. */
+PHP_FUNCTION(svn_fs_txn_prop)
+{
+	zval *ztxn;
+	struct php_svn_repos_fs_txn *txn;
+	svn_error_t *err;
+	svn_string_t *str;
+	char *propname;
+	int propnamelen;
+	apr_pool_t *subpool;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
+				&ztxn, &propname, &propnamelen)) {
+		return;
+	}
+
+	ZEND_FETCH_RESOURCE(txn, struct php_svn_repos_fs_txn *, &ztxn, -1, "svn-repos-fs-txn", le_svn_repos_fs_txn);
+
+	subpool = svn_pool_create(SVN_G(pool));
+	if (!subpool) {
+		RETURN_FALSE;
+	}
+
+	err = svn_fs_txn_prop(&str, txn->txn, propname, subpool);
+	if (err) {
+		php_svn_handle_error(err TSRMLS_CC);
+		RETVAL_FALSE;
+	} else if (!str) {
+		/* the property is not found. return an empty string */
+		RETVAL_STRINGL("", 0, 1);
+	} else {
+		RETVAL_STRINGL((char*)str->data, str->len, 1);
+	}
+
+	svn_pool_destroy(subpool);
+}
+/* }}} */
+
 
 /*
  * Local variables:

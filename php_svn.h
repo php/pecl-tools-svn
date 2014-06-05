@@ -108,6 +108,8 @@ PHP_FUNCTION(svn_fs_change_node_prop);
 PHP_FUNCTION(svn_fs_contents_changed);
 PHP_FUNCTION(svn_fs_props_changed);
 PHP_FUNCTION(svn_fs_abort_txn);
+PHP_FUNCTION(svn_fs_open_txn);
+PHP_FUNCTION(svn_fs_txn_prop);
 
 /* TODO: */
 
