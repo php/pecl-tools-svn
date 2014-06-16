@@ -78,6 +78,9 @@ PHP_FUNCTION(svn_mkdir);
 PHP_FUNCTION(svn_move);
 PHP_FUNCTION(svn_proplist);
 PHP_FUNCTION(svn_propget);
+PHP_FUNCTION(svn_revprop_get);
+PHP_FUNCTION(svn_revprop_set);
+PHP_FUNCTION(svn_revprop_delete);
 
 PHP_FUNCTION(svn_repos_create);
 PHP_FUNCTION(svn_repos_recover);
