@@ -954,6 +954,14 @@ cleanup:
 }
 /* }}} */
 
+static int compare_keys(const void *a, const void *b) /* {{{ */
+{
+	Bucket *f = *((Bucket **) a);
+	Bucket *s = *((Bucket **) b);
+
+	return strcmp(f->arKey, s->arKey);
+}
+
 
 /* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse [, bool peg]]])
 	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
@@ -966,8 +974,6 @@ PHP_FUNCTION(svn_ls)
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	apr_hash_t *dirents;
-	apr_array_header_t *array;
-	int i;
 	apr_pool_t *subpool;
 	svn_opt_revision_t peg_revision;
 	const char *true_path;
@@ -1013,14 +1019,11 @@ PHP_FUNCTION(svn_ls)
 		goto cleanup;
 	}
 
-	array = svn_sort__hash (dirents, svn_sort_compare_items_as_paths, subpool);
 	array_init(return_value);
 
-	for (i = 0; i < array->nelts; ++i)
-	{
+	for (apr_hash_index_t *hi = apr_hash_first(subpool, dirents); hi; hi = apr_hash_next(hi)) {
 		const char *utf8_entryname;
 		svn_dirent_t *dirent;
-		svn_sort__item_t *item;
 		apr_time_t now = apr_time_now();
 		apr_time_exp_t exp_time;
 		apr_status_t apr_err;
@@ -1029,9 +1032,8 @@ PHP_FUNCTION(svn_ls)
 		const char   *utf8_timestr;
 		zval 	*row;
 
-		item = &APR_ARRAY_IDX (array, i, svn_sort__item_t);
-		utf8_entryname = item->key;
-		dirent = apr_hash_get (dirents, utf8_entryname, item->klen);
+		svn_utf_cstring_to_utf8 (&utf8_entryname, apr_hash_this_key(hi), subpool);
+		dirent = apr_hash_this_val(hi);
 
 		/* svn_time_to_human_cstring gives us something *way* too long
 		to use for this, so we have to roll our own.  We include
@@ -1079,6 +1081,15 @@ cleanup:
 }
 /* }}} */
 
+
+static int compare_keys_as_paths(const void *a, const void *b)  /* {{{ */
+{
+	Bucket *f = *((Bucket **) a);
+	Bucket *s = *((Bucket **) b);
+
+	return svn_sort_compare_paths(&(f->arKey), &(s->arKey));
+}
+
 static svn_error_t *
 php_svn_log_receiver (void *ibaton,
 				apr_hash_t *changed_paths,
@@ -1090,8 +1101,6 @@ php_svn_log_receiver (void *ibaton,
 {
 	struct php_svn_log_receiver_baton *baton = (struct php_svn_log_receiver_baton*) ibaton;
 	zval  *row, *paths;
-	apr_array_header_t *sorted_paths;
-	int i;
 	TSRMLS_FETCH();
 
 	if (rev == 0) {
@@ -1118,23 +1127,19 @@ php_svn_log_receiver (void *ibaton,
 		MAKE_STD_ZVAL(paths);
 		array_init(paths);
 
-		sorted_paths = svn_sort__hash(changed_paths, svn_sort_compare_items_as_paths, pool);
-
-		for (i = 0; i < sorted_paths->nelts; i++)
-		{
-			svn_sort__item_t *item;
+		for (apr_hash_index_t *hi = apr_hash_first(pool, changed_paths); hi; hi = apr_hash_next(hi)) {
 			svn_log_changed_path_t *log_item;
 			zval *zpaths;
 			const char *path;
 
 			MAKE_STD_ZVAL(zpaths);
 			array_init(zpaths);
-			item = &(APR_ARRAY_IDX (sorted_paths, i, svn_sort__item_t));
-			path = item->key;
-			log_item = apr_hash_get (changed_paths, item->key, item->klen);
+
+			path = apr_hash_this_key(hi);
+			log_item = apr_hash_this_val(hi);
 
 			add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
-			add_assoc_string(zpaths, "path", (char *) item->key, 1);
+			add_assoc_string(zpaths, "path", path, 1);
 
 			if (log_item->copyfrom_path
 					&& SVN_IS_VALID_REVNUM (log_item->copyfrom_rev)) {
@@ -1144,8 +1149,10 @@ php_svn_log_receiver (void *ibaton,
 
 			}
 
-			add_next_index_zval(paths,zpaths);
+			add_assoc_zval(paths, path, zpaths);
 		}
+
+		zend_hash_sort(Z_ARRVAL_P(paths), zend_qsort, compare_keys_as_paths, 1);
 		add_assoc_zval(row,"paths",paths);
 	}
 
