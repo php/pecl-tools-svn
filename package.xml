@@ -80,7 +80,6 @@
 			<file name="config.w32" role="src" />
 			<file name="CREDITS" role="doc" />
 			<file name="LICENSE" role="doc" />
-			<file name="EXPERIMENTAL" role="doc" />
 			<file name="php_svn.h" role="src" />
 			<file name="svn.c" role="src" />
 		</dir>
