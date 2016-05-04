@@ -977,6 +977,7 @@ PHP_FUNCTION(svn_ls)
 	apr_pool_t *subpool;
 	svn_opt_revision_t peg_revision;
 	const char *true_path;
+	apr_hash_index_t *hi;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lbb",
 			&repos_url, &repos_url_len, &revision.value.number, &recurse, &peg) == FAILURE) {
@@ -1021,7 +1022,7 @@ PHP_FUNCTION(svn_ls)
 
 	array_init(return_value);
 
-	for (apr_hash_index_t *hi = apr_hash_first(subpool, dirents); hi; hi = apr_hash_next(hi)) {
+	for (hi = apr_hash_first(subpool, dirents); hi; hi = apr_hash_next(hi)) {
 		const char *utf8_entryname;
 		svn_dirent_t *dirent;
 		apr_time_t now = apr_time_now();
@@ -1031,9 +1032,10 @@ PHP_FUNCTION(svn_ls)
 		char timestr[20];
 		const char   *utf8_timestr;
 		zval 	*row;
+		const char *key;
 
-		svn_utf_cstring_to_utf8 (&utf8_entryname, apr_hash_this_key(hi), subpool);
-		dirent = apr_hash_this_val(hi);
+		apr_hash_this(hi, &key, NULL, &dirent);
+		svn_utf_cstring_to_utf8 (&utf8_entryname, key, subpool);
 
 		/* svn_time_to_human_cstring gives us something *way* too long
 		to use for this, so we have to roll our own.  We include
@@ -1101,6 +1103,7 @@ php_svn_log_receiver (void *ibaton,
 {
 	struct php_svn_log_receiver_baton *baton = (struct php_svn_log_receiver_baton*) ibaton;
 	zval  *row, *paths;
+	apr_hash_index_t *hi;
 	TSRMLS_FETCH();
 
 	if (rev == 0) {
@@ -1127,7 +1130,7 @@ php_svn_log_receiver (void *ibaton,
 		MAKE_STD_ZVAL(paths);
 		array_init(paths);
 
-		for (apr_hash_index_t *hi = apr_hash_first(pool, changed_paths); hi; hi = apr_hash_next(hi)) {
+		for (hi = apr_hash_first(pool, changed_paths); hi; hi = apr_hash_next(hi)) {
 			svn_log_changed_path_t *log_item;
 			zval *zpaths;
 			const char *path;
@@ -1135,8 +1138,7 @@ php_svn_log_receiver (void *ibaton,
 			MAKE_STD_ZVAL(zpaths);
 			array_init(zpaths);
 
-			path = apr_hash_this_key(hi);
-			log_item = apr_hash_this_val(hi);
+			apr_hash_this(hi, &path, NULL, &log_item);
 
 			add_assoc_stringl(zpaths, "action", &(log_item->action), 1,1);
 			add_assoc_string(zpaths, "path", path, 1);
