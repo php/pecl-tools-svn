@@ -30,9 +30,9 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    	<date>2010-12-09</date>
+    	<date>2016-05-04</date>
 	<version>
-		<release>1.0.2</release>
+		<release>1.0.3</release>
 		<api>1.0.0</api>
 	</version>
 
@@ -44,19 +44,27 @@
 	<license uri="http://www.php.net/license">PHP License</license>
 
 	<notes>
-Minor bug fix / feature release
+        Minor bug fix / feature release 
+
+        Compiles with libsvn 1.9
 
         Changes:
-        #60583 - compile failing due to missing definition of svn_version_t in newer releases of libsvn
-        #59976 (svn build fails on PHP5.4)
-        #15505 - warning on errors
-        ------  support for peg revisions in checkout, ls, log, blame, info, proplist, propget
-                extra error checks in checkout - thanks to Hyung-Hwan Chung
-        #22758 - support specifying revision in svn_copy (he dot chen at zte dot com dot cn)
-        #23649 - allow deletion of properties by using NULL as value (patch by Jonas Zeiger)
-        #22754 - add support for svn_delete
-        #22100 - segfault on shutdown when using multiple repositories - patch by jimmy at velsoft
- 
+            #71025 - support for subversion 1.9 by pterjan at google dot com
+
+            ------ - The new optional parameter "depth" has been added to svn_checkout(). along with new constancts SVN_DEPTH_* - by Chung, Hyung-Hwan
+
+            ------ - Add missing constant SVN_IGNORE_EXTERNALS
+                     - patch by Chung, Hyung-Hwan
+            ------ - add support for svn_propset and svn_prop_delete
+                     - patch by Chung, Hyung-Hwan
+            ------ - add svn_revprop_(get|set|delete) 
+                     - patch by Chung, Hyung-Hwan
+            ------ - add svn_fs_txn_prop and svn_fs_open_txn, fix segfault in svn_fs_revision_prop 
+                     - patch by Chung, Hyung-Hwan
+            ------ - Fixes to svn_cat / svn_fs_apply_text - solves memory leak
+                     - patch by Chung, Hyung-Hwan
+            ------ - Added check for possible NULL message
+
 
 	</notes>
   	<!-- /RELEASE SECTION -->
@@ -95,6 +103,40 @@ Minor bug fix / feature release
   		<configureoption default="autodetect" name="with-svn-apr" prompt="Please provide the prefix of the APR installation used with Subversion" />
  	</extsrcrelease>
         <changelog>
+
+
+
+ <release>
+      	<date>2012-03-27</date>
+	    <version>
+		    <release>1.0.2</release>
+		    <api>1.0.0</api>
+	    </version>
+
+	    <stability>
+		    <release>stable</release>
+		    <api>stable</api>
+	    </stability>
+
+	    <license uri="http://www.php.net/license">PHP License</license>
+
+	    <notes>
+    Minor bug fix / feature release
+
+            Changes:
+            #60583 - compile failing due to missing definition of svn_version_t in newer releases of libsvn
+            #59976 (svn build fails on PHP5.4)
+            #15505 - warning on errors
+            ------  support for peg revisions in checkout, ls, log, blame, info, proplist, propget
+                    extra error checks in checkout - thanks to Hyung-Hwan Chung
+            #22758 - support specifying revision in svn_copy (he dot chen at zte dot com dot cn)
+            #23649 - allow deletion of properties by using NULL as value (patch by Jonas Zeiger)
+            #22754 - add support for svn_delete
+            #22100 - segfault on shutdown when using multiple repositories - patch by jimmy at velsoft
+     
+
+	    </notes>
+        </release>
 
         <release>
 
