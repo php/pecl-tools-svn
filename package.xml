@@ -30,7 +30,68 @@
 	</lead>
 
 	<!-- RELEASE SECTION -->
-    	<date>2016-05-04</date>
+    	<date>2017-11-20</date>
+	<version>
+		<release>2.0.3</release>
+		<api>2.0.0</api>
+	</version>
+
+	<stability>
+		<release>beta</release>
+		<api>beta</api>
+	</stability>
+
+	<license uri="http://www.php.net/license">PHP License</license>
+
+	<notes>
+        PHP 7 compatility
+
+        Changes:
+            #75206 - support for PHP7 by at mitani at gmail dot com
+
+
+	</notes>
+  	<!-- /RELEASE SECTION -->
+
+
+	<contents>
+		<dir name="/">
+			<dir name="examples">
+				<file baseinstalldir="/" name="hook_copycommit.php" role="doc" />
+				<file baseinstalldir="/" name="hook_emailcommit.php" role="doc" />
+			</dir>
+			<file name="config.m4" role="src" />
+			<file name="config.w32" role="src" />
+			<file name="CREDITS" role="doc" />
+			<file name="LICENSE" role="doc" />
+			<file name="php_svn.h" role="src" />
+			<file name="svn.c" role="src" />
+		</dir>
+	</contents>
+
+	<dependencies>
+		<required>
+			<php>
+				<min>7.0.0</min>
+				<max>8.0.0</max>
+			</php>
+			<pearinstaller>
+				<min>1.4.0</min>
+			</pearinstaller>
+		</required>
+	</dependencies>
+
+	<providesextension>svn</providesextension>
+	<extsrcrelease>
+  		<configureoption default="autodetect" name="with-svn" prompt="Please provide the prefix of Subversion installation" />
+  		<configureoption default="autodetect" name="with-svn-apr" prompt="Please provide the prefix of the APR installation used with Subversion" />
+ 	</extsrcrelease>
+        <changelog>
+
+
+
+ <release>
+	<date>2016-05-04</date>
 	<version>
 		<release>1.0.3</release>
 		<api>1.0.0</api>
@@ -67,45 +128,7 @@
 
 
 	</notes>
-  	<!-- /RELEASE SECTION -->
-
-
-	<contents>
-		<dir name="/">
-			<dir name="examples">
-				<file baseinstalldir="/" name="hook_copycommit.php" role="doc" />
-				<file baseinstalldir="/" name="hook_emailcommit.php" role="doc" />
-			</dir>
-			<file name="config.m4" role="src" />
-			<file name="config.w32" role="src" />
-			<file name="CREDITS" role="doc" />
-			<file name="LICENSE" role="doc" />
-			<file name="php_svn.h" role="src" />
-			<file name="svn.c" role="src" />
-		</dir>
-	</contents>
-
-	<dependencies>
-		<required>
-			<php>
-				<min>4.0.0</min>
-				<max>6.0.0</max>
-			</php>
-			<pearinstaller>
-				<min>1.4.0</min>
-			</pearinstaller>
-		</required>
-	</dependencies>
-
-	<providesextension>svn</providesextension>
-	<extsrcrelease>
-  		<configureoption default="autodetect" name="with-svn" prompt="Please provide the prefix of Subversion installation" />
-  		<configureoption default="autodetect" name="with-svn-apr" prompt="Please provide the prefix of the APR installation used with Subversion" />
- 	</extsrcrelease>
-        <changelog>
-
-
-
+ </release>
  <release>
       	<date>2012-03-27</date>
 	    <version>
