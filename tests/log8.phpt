@@ -20,6 +20,13 @@ array(3) {
     ["paths"]=>
     array(2) {
       [0]=>
+      array(2) {
+        ["action"]=>
+        string(1) "D"
+        ["path"]=>
+        string(5) "/test"
+      }
+      [1]=>
       array(4) {
         ["action"]=>
         string(1) "A"
@@ -29,13 +36,6 @@ array(3) {
         string(5) "/test"
         ["rev"]=>
         int(2)
-      }
-      [1]=>
-      array(2) {
-        ["action"]=>
-        string(1) "D"
-        ["path"]=>
-        string(5) "/test"
       }
     }
   }

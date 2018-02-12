@@ -176,3 +176,23 @@ ZEND_END_MODULE_GLOBALS(svn)
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
+
+#define ZEND_VERIFY_RESOURCE(rsrc)      \
+    if (!rsrc) {                        \
+        RETURN_FALSE;                   \
+    }
+
+#define ZEND_FETCH_RESOURCE(rsrc, rsrc_type, passed_id, default_id, resource_type_name, resource_type)  \
+    rsrc = (rsrc_type) zend_fetch_resource_ex(*passed_id , resource_type_name, resource_type);    \
+    ZEND_VERIFY_RESOURCE(rsrc);
+
+#define ZEND_REGISTER_RESOURCE(rsrc_result, rsrc_pointer, rsrc_type)  \
+    rsrc_result = zend_register_resource(rsrc_pointer, rsrc_type );
+
+#define Z_STRVAL_PP(zval_pp)    Z_STRVAL(**zval_pp)
+
+#define Z_TYPE_PP(zval_pp)  Z_TYPE(**zval_pp)
+
+#define MAKE_STD_ZVAL(zv)                \
+    (zv) = (zval *) emalloc(sizeof(zval)); \
+    memset(zv, 0, sizeof(zval));
