@@ -21,7 +21,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
+/* $Id: svn.c 344235 2018-02-12 06:24:48Z alan_k $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -961,14 +961,14 @@ static int compare_keys(const void *a, const void *b) /* {{{ */
 }
 
 
-/* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse [, bool peg]]])
+/* {{{ proto array svn_ls(string repository_url [, int revision [, bool recurse ]])
 	Returns a list of a directory in a working copy or repository, optionally at revision_no. */
 PHP_FUNCTION(svn_ls)
 {
 	const char *repos_url = NULL;
 	const char *utf8_repos_url = NULL;
 	long repos_url_len;
-	zend_bool recurse = 0, peg = 0;
+	zend_bool recurse = 0;
 	svn_error_t *err;
 	svn_opt_revision_t revision = { 0 };
 	apr_hash_t *dirents;
@@ -977,8 +977,8 @@ PHP_FUNCTION(svn_ls)
 	const char *true_path;
 	apr_hash_index_t *hi;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lbb",
-			&repos_url, &repos_url_len, &revision.value.number, &recurse, &peg) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lb",
+			&repos_url, &repos_url_len, &revision.value.number, &recurse) == FAILURE) {
 		return;
 	}
 	PHP_SVN_INIT_CLIENT();
