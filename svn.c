@@ -1345,7 +1345,7 @@ PHP_FUNCTION(svn_diff)
 	svn_opt_revision_t revision1, revision2;
 	zend_bool ignore_content_type = 0;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl!sl!",
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "slsl",
 			&path1, &path1len, &rev1,
 			&path2, &path2len, &rev2)) {
 		return;
