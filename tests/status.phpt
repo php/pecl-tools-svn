@@ -24,14 +24,14 @@ include('utils.inc');
 delete_directory(dirname(__FILE__) . DIRECTORY_SEPARATOR . 'wc');
 
 ?>
---EXPECT--
+--EXPECTF--
 array(0) {
 }
 array(2) {
   [0]=>
   array(16) {
     ["path"]=>
-    string(31) "/home/develar/pecl_svn/tests/wc"
+    string(%d) "%s/tests/wc"
     ["text_status"]=>
     int(3)
     ["repos_text_status"]=>
@@ -49,9 +49,9 @@ array(2) {
     ["name"]=>
     string(0) ""
     ["url"]=>
-    string(37) "file:///home/develar/pecl_svn/tests/r"
+    string(%d) "file://%s/tests/r"
     ["repos"]=>
-    string(37) "file:///home/develar/pecl_svn/tests/r"
+    string(%d) "file://%s/tests/r"
     ["revision"]=>
     int(2)
     ["kind"]=>
@@ -66,7 +66,7 @@ array(2) {
   [1]=>
   &array(16) {
     ["path"]=>
-    string(36) "/home/develar/pecl_svn/tests/wc/test"
+    string(%d) "%s/tests/wc/test"
     ["text_status"]=>
     int(3)
     ["repos_text_status"]=>
@@ -84,9 +84,9 @@ array(2) {
     ["name"]=>
     string(4) "test"
     ["url"]=>
-    string(42) "file:///home/develar/pecl_svn/tests/r/test"
+    string(%d) "file://%s/tests/r/test"
     ["repos"]=>
-    string(37) "file:///home/develar/pecl_svn/tests/r"
+    string(%d) "file://%s/tests/r"
     ["revision"]=>
     int(2)
     ["kind"]=>

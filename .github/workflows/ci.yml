@@ -1,0 +1,25 @@
+name: Build and Test
+on: [push, pull_request]
+jobs:
+  ubuntu:
+    strategy:
+      matrix:
+          version: ['7.3', '7.4']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install libsvn-dev
+      - name: Checkout svn
+        uses: actions/checkout@v2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{matrix.version}}
+      - name: phpize
+        run: phpize
+      - name: configure
+        run: ./configure --with-svn
+      - name: make
+        run: make
+      - name: Test svn
+        run: make test TESTS='--show-diff tests'
