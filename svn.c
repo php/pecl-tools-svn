@@ -522,21 +522,21 @@ cleanup:
 }
 /* }}} */
 
-/* {{{ proto bool svn_import(string path, string url, bool nonrecursive)
+/* {{{ proto bool svn_import(string path, string url, bool nonrecursive [, string message ])
 	Imports unversioned path into repository at url */
 PHP_FUNCTION(svn_import)
 {
 	svn_client_commit_info_t *commit_info_p = NULL;
-	const char *path = NULL;
+	const char *path = NULL, *logmsg = NULL;
 	const char *utf8_path = NULL;
-	long pathlen, urllen;
+	int pathlen, logmsg_len, urllen;
 	const char *url;
-	svn_boolean_t nonrecursive;
+	zend_bool nonrecursive;
 	svn_error_t *err;
 	apr_pool_t *subpool;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssb",
-				&path, &pathlen, &url, &urllen, &nonrecursive)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssb|s",
+				&path, &pathlen, &url, &urllen, &nonrecursive, &logmsg, &logmsg_len)) {
 		RETURN_FALSE;
 	}
 
@@ -556,8 +556,13 @@ PHP_FUNCTION(svn_import)
 
 	path = svn_path_canonicalize(utf8_path, subpool);
 
+	SVN_G(ctx)->log_msg_baton = logmsg;
+
 	err = svn_client_import(&commit_info_p, path, url, nonrecursive,
 			SVN_G(ctx), subpool);
+
+	SVN_G(ctx)->log_msg_baton = NULL;
+
 	if (err) {
 		php_svn_handle_error (err TSRMLS_CC);
 		RETVAL_FALSE;
